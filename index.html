@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Seclector Tool</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        main {
+            display: flex;
+            gap: 0;
+            margin: 0;
+            padding: 0;
+        }
+        .sidebar {
+            margin: 0;
+            padding: 0;
+        }
+        .canvas-container {
+            margin: 0 10px;
+            padding: 0;
+        }
+        .controls {
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Color Seclector Tool</h1>
+    </header>
+    
+    <main>
+        <div class="sidebar">
+            <div class="search-container">
+                <input type="text" id="colorSearch" placeholder="Search by #A1, color name, or value...">
+            </div>
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="light">Light</button>
+                <button class="tab-btn" data-tab="medium">Medium</button>
+                <button class="tab-btn" data-tab="dark">Dark</button>
+            </div>
+            <div class="tab-content">
+                <div class="color-cards-container tab-pane active" id="lightColors">
+                    <!-- Light colors will be added dynamically -->
+                </div>
+                <div class="color-cards-container tab-pane" id="mediumColors">
+                    <!-- Medium colors will be added dynamically -->
+                </div>
+                <div class="color-cards-container tab-pane" id="darkColors">
+                    <!-- Dark colors will be added dynamically -->
+                </div>
+            </div>
+        </div>
+        <div class="canvas-container">
+            <canvas id="drawingCanvas"></canvas>
+            <div id="floatingColorPicker" class="floating-color-picker" style="display: none;">
+                <input type="color" id="floatingColorInput">
+                <div class="opacity-control">
+                    <label for="opacitySlider">Opacity:</label>
+                    <input type="range" id="opacitySlider" min="0" max="100" value="100">
+                    <span id="opacityValue">100%</span>
+                </div>
+                <div class="preset-colors">
+                    <button class="color-btn" data-color="#FF0000" style="background-color: #FF0000"></button>
+                    <button class="color-btn" data-color="#00FF00" style="background-color: #00FF00"></button>
+                    <button class="color-btn" data-color="#0000FF" style="background-color: #0000FF"></button>
+                    <button class="color-btn" data-color="#FFFF00" style="background-color: #FFFF00"></button>
+                    <button class="color-btn" data-color="#FF00FF" style="background-color: #FF00FF"></button>
+                    <button class="color-btn" data-color="#00FFFF" style="background-color: #00FFFF"></button>
+                </div>
+            </div>
+        </div>
+        <div class="controls" style="display: flex; justify-content: space-between; margin-top: 10px; flex-wrap: wrap;">
+            <div class="button-group">
+                <button id="newPolygonBtn">New Wall</button>
+                <button id="finishPolygonBtn">Finish Wall</button>
+                <button id="clearButton">Clear Walls</button>
+                <button id="saveCanvasBtn">Save Image</button>
+                <div class="image-upload">
+                    <button id="imagePickerBtn">Upload Background</button>
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                </div>
+            </div>
+            <div class="color-controls" style="display: none;">
+                <h3>Color Palette</h3>
+                <div class="color-palette">
+                    <input type="color" id="colorPicker" value="#4CAF50">
+                    <div class="preset-colors">
+                        <button class="color-btn" data-color="#FF0000" style="background-color: #FF0000"></button>
+                        <button class="color-btn" data-color="#00FF00" style="background-color: #00FF00"></button>
+                        <button class="color-btn" data-color="#0000FF" style="background-color: #0000FF"></button>
+                        <button class="color-btn" data-color="#FFFF00" style="background-color: #FFFF00"></button>
+                        <button class="color-btn" data-color="#FF00FF" style="background-color: #FF00FF"></button>
+                        <button class="color-btn" data-color="#00FFFF" style="background-color: #00FFFF"></button>
+                    </div>
+                    <button id="applyColorBtn">Apply Color</button>
+                </div>
+            </div>
+            <div class="polygon-list">
+                <h3>Walls</h3>
+                <div id="polygonContainer"></div>
+            </div>
+            <p>Click on the canvas to create polygon points. Click "Finish Polygon" to complete the current polygon.</p>
+            <p>Click on any polygon to select it and change its color.</p>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; Color Selector Tool</p>
+    </footer>
+
+    <script src="colorData.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
