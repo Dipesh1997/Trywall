@@ -291,13 +291,13 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Modify the drawPolygon function to properly handle cutouts
+    // Modify the drawPolygon function to properly handle cutouts and background
     function drawPolygon(points, color, isSelected = false, index) {
         if (points.length < 3) return;
         
         ctx.save();
         
-        // Create main polygon path
+        // Draw the main polygon
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) {
@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         ctx.closePath();
 
-        // Create cutout paths if they exist
+        // Draw cutouts if they exist
         if (polygons[index] && polygons[index].cutouts) {
             for (let cutout of polygons[index].cutouts) {
                 ctx.moveTo(cutout[0].x, cutout[0].y);
@@ -332,7 +332,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.setLineDash([]);
         }
 
-        // Handle cutouts
+        // Handle cutouts - make them transparent and show background
         if (polygons[index] && polygons[index].cutouts) {
             // Create transparent cutouts
             ctx.globalCompositeOperation = 'destination-out';
@@ -374,10 +374,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 ctx.restore();
             }
+
+            // Draw cutout borders
+            for (let cutout of polygons[index].cutouts) {
+                ctx.beginPath();
+                ctx.moveTo(cutout[0].x, cutout[0].y);
+                for (let i = 1; i < cutout.length; i++) {
+                    ctx.lineTo(cutout[i].x, cutout[i].y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = '#666';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
         }
 
-        // Draw cutout points in progress
-        if (isCutoutMode && index === parentPolygonIndex) {
+        // Draw cutout in progress if this is the active polygon
+        if (isCutoutMode && index === parentPolygonIndex && cutoutPoints.length > 0) {
+            ctx.beginPath();
+            ctx.moveTo(cutoutPoints[0].x, cutoutPoints[0].y);
+            for (let i = 1; i < cutoutPoints.length; i++) {
+                ctx.lineTo(cutoutPoints[i].x, cutoutPoints[i].y);
+            }
+            if (cutoutPoints.length >= 2) {
+                ctx.strokeStyle = '#f44336';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Draw points for cutout
             cutoutPoints.forEach(point => {
                 ctx.beginPath();
                 ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
@@ -385,46 +410,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.fill();
                 ctx.closePath();
             });
-
-            if (cutoutPoints.length > 1) {
-                ctx.beginPath();
-                ctx.moveTo(cutoutPoints[0].x, cutoutPoints[0].y);
-                for (let i = 1; i < cutoutPoints.length; i++) {
-                    ctx.lineTo(cutoutPoints[i].x, cutoutPoints[i].y);
-                }
-                ctx.strokeStyle = '#f44336';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-            }
-        }
-
-        // Add info box only if polygon has color information AND no cutouts
-        if (polygons[index] && polygons[index].colorInfo && 
-            (!polygons[index].cutouts || polygons[index].cutouts.length === 0)) {
-            const centroid = calculatePolygonCentroid(points);
-            const colorInfo = polygons[index].colorInfo;
-            const boxWidth = 120;
-            const boxHeight = 50;
-            const boxX = centroid.x - boxWidth / 2;
-            const boxY = centroid.y - boxHeight / 2;
-            
-            // Draw box background with rounded corners
-            ctx.beginPath();
-            ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fill();
-            ctx.strokeStyle = polygons[index].hexColor || color;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Draw color information text
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText(`#${colorInfo.number}`, centroid.x, centroid.y - 8);
-            
-            ctx.font = '11px Arial';
-            ctx.fillText(colorInfo.name, centroid.x, centroid.y + 12);
         }
 
         ctx.restore();
@@ -466,67 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Event listeners
-    canvas.addEventListener('click', function(e) {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-
-        if (isCutoutMode && parentPolygonIndex !== -1) {
-            // Check if point is inside parent polygon
-            if (isPointInPolygon(x, y, polygons[parentPolygonIndex].points)) {
-                cutoutPoints.push({ x, y });
-                if (cutoutPoints.length === 4) {
-                    // Create cutout
-                    if (polygons[parentPolygonIndex].cutouts) {
-                        polygons[parentPolygonIndex].cutouts.push([...cutoutPoints]);
-                    } else {
-                        polygons[parentPolygonIndex].cutouts = [[...cutoutPoints]];
-                    }
-                    // Update cutout count and button text
-                    cutoutCount++;
-                    cutoutBtn.textContent = `Cancel Cutout (${cutoutCount} created)`;
-                    // Reset points for next cutout but stay in cutout mode
-                    cutoutPoints = [];
-                    redrawCanvas();
-                }
-                redrawCanvas();
-            }
-            return;
-        }
-
-        // First, check if clicked on existing polygon
-        for (let i = polygons.length - 1; i >= 0; i--) {
-            if (isPointInPolygon(x, y, polygons[i].points)) {
-                if (isDrawing) {
-                    // If we're drawing and trying to place a point inside an existing polygon, ignore it
-                    return;
-                } else {
-                    // If we're not drawing, show color picker for the clicked polygon
-                    activePolygonIndex = i;
-                    showColorPicker();
-                    redrawCanvas();
-                    return;
-                }
-            }
-        }
-
-        // If we didn't click on any polygon and we're in drawing mode, add a point
-        if (isDrawing) {
-            // Hide color picker when drawing
-            document.getElementById('floatingColorPicker').style.display = 'none';
-            // Check if the new line would intersect with any existing polygon
-            if (currentPoints.length > 0) {
-                const lastPoint = currentPoints[currentPoints.length - 1];
-                for (let polygon of polygons) {
-                    if (doesLineIntersectPolygon(lastPoint, {x, y}, polygon.points)) {
-                        return; // Don't add the point if the line would intersect
-                    }
-                }
-            }
-            currentPoints.push({ x, y });
-            redrawCanvas();
-        }
-    });
+    canvas.addEventListener('click', handleCanvasClick);
 
     function showColorPicker() {
         const colorPicker = document.getElementById('floatingColorPicker');
@@ -825,15 +750,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (activePolygonIndex !== -1) {
             isCutoutMode = !isCutoutMode;
             this.classList.toggle('active');
+            
             if (isCutoutMode) {
                 parentPolygonIndex = activePolygonIndex;
                 cutoutPoints = [];
                 cutoutCount = polygons[activePolygonIndex].cutouts ? 
                              polygons[activePolygonIndex].cutouts.length : 0;
                 this.textContent = `Cancel Cutout (${cutoutCount} created)`;
+                canvas.style.cursor = 'crosshair'; // Visual feedback for cutout mode
             } else {
+                // Reset cutout mode
+                parentPolygonIndex = -1;
                 cutoutPoints = [];
                 this.textContent = 'Create Cutout';
+                canvas.style.cursor = 'default';
             }
             redrawCanvas();
         }
@@ -896,4 +826,110 @@ document.addEventListener('DOMContentLoaded', function() {
             return this;
         };
     }
+
+    // Modify the canvas click handler and add document click handler
+    function handleCanvasClick(e) {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        if (isCutoutMode && parentPolygonIndex !== -1) {
+            // Check if click is inside the parent polygon
+            if (isPointInPolygon(x, y, polygons[parentPolygonIndex].points)) {
+                cutoutPoints.push({ x, y });
+                redrawCanvas();
+            }
+        } else {
+            // Normal polygon selection/drawing logic
+            let clickedPolygonIndex = -1;
+            for (let i = polygons.length - 1; i >= 0; i--) {
+                if (isPointInPolygon(x, y, polygons[i].points)) {
+                    clickedPolygonIndex = i;
+                    break;
+                }
+            }
+
+            if (clickedPolygonIndex !== -1) {
+                if (isDrawing) {
+                    if (currentPoints.length >= 3) {
+                        finishCurrentPolygon();
+                    }
+                    isDrawing = false;
+                }
+                activePolygonIndex = clickedPolygonIndex;
+                selectedPolygonIndex = clickedPolygonIndex;
+                showColorPicker();
+            } else if (isDrawing) {
+                currentPoints.push({ x, y });
+            }
+            redrawCanvas();
+            updatePolygonList();
+        }
+    }
+
+    // Add document click handler to handle clicks outside canvas
+    document.addEventListener('click', function(e) {
+        // Check if click is outside canvas and color picker
+        if (!canvas.contains(e.target) && 
+            !document.getElementById('floatingColorPicker').contains(e.target) &&
+            !e.target.closest('.modal')) {
+            
+            // Reset cutout mode if active
+            if (isCutoutMode) {
+                isCutoutMode = false;
+                parentPolygonIndex = -1;
+                cutoutPoints = [];
+                const cutoutBtn = document.getElementById('cutoutBtn');
+                cutoutBtn.classList.remove('active');
+                cutoutBtn.textContent = 'Create Cutout';
+            }
+            
+            // Reset selection
+            activePolygonIndex = -1;
+            selectedPolygonIndex = -1;
+            floatingColorPicker.style.display = 'none';
+            redrawCanvas();
+        }
+    });
+
+    // Add this function to handle cutout completion
+    function completeCutout() {
+        if (cutoutPoints.length >= 3) {
+            if (!polygons[parentPolygonIndex].cutouts) {
+                polygons[parentPolygonIndex].cutouts = [];
+            }
+            
+            // Check if cutouts overlap
+            if (!doCutoutsOverlap(polygons[parentPolygonIndex].cutouts, cutoutPoints)) {
+                polygons[parentPolygonIndex].cutouts.push([...cutoutPoints]);
+                cutoutCount = polygons[parentPolygonIndex].cutouts.length;
+                document.getElementById('cutoutBtn').textContent = `Cancel Cutout (${cutoutCount} created)`;
+            } else {
+                alert('Cutouts cannot overlap!');
+            }
+        }
+        cutoutPoints = [];
+        redrawCanvas();
+    }
+
+    // Add double click handler to complete cutout
+    canvas.addEventListener('dblclick', function(e) {
+        if (isCutoutMode && cutoutPoints.length >= 3) {
+            completeCutout();
+        }
+    });
+
+    // Add key handler for Escape key to cancel cutout mode
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isCutoutMode) {
+            isCutoutMode = false;
+            parentPolygonIndex = -1;
+            cutoutPoints = [];
+            const cutoutBtn = document.getElementById('cutoutBtn');
+            cutoutBtn.classList.remove('active');
+            cutoutBtn.textContent = 'Create Cutout';
+            canvas.style.cursor = 'default';
+            redrawCanvas();
+        }
+    });
 });
