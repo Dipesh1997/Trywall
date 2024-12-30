@@ -25,6 +25,31 @@ document.addEventListener('DOMContentLoaded', function() {
     let parentPolygonIndex = -1;
     let cutoutCount = 0;
 
+    // Color picker state
+    let isColorPickerActive = false;
+
+    // Add this to track original colors and active blend states
+    let originalColor = null;
+    let activeBlendMode = null;
+
+    // Add these functions at the beginning of your script
+    function getCanvasScaleFactor() {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: canvas.width / rect.width,
+            y: canvas.height / rect.height
+        };
+    }
+
+    function getScaledCoordinates(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const scale = getCanvasScaleFactor();
+        return {
+            x: (clientX - rect.left) * scale.x,
+            y: (clientY - rect.top) * scale.y
+        };
+    }
+
     // Initialize tabs
     function initializeTabs() {
         const tabButtons = document.querySelectorAll('.tab-btn');
@@ -45,76 +70,72 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize color cards for each category
     function initializeColorCards() {
         const categories = ['light', 'medium', 'dark'];
+        let globalPageNumber = 1; // Starting page number
         
         categories.forEach(category => {
             const container = document.getElementById(category + 'Colors');
-            if (!container) {
-                console.error(`Container ${category}Colors not found`);
-                return;
-            }
+            if (!container) return;
             
+            container.innerHTML = '';
             const colors = colorData[category];
-            if (!colors) {
-                console.error(`No colors found for category ${category}`);
-                return;
-            }
-
-            colors.forEach(color => {
+            
+            // Process colors in groups of 8
+            for (let i = 0; i < colors.length; i++) {
+                const color = colors[i];
+                const currentPageNumber = Math.floor(i / 8) + globalPageNumber; // Calculate current page
+                
+                // Create color card
                 const card = document.createElement('div');
                 card.className = 'color-card';
                 card.style.backgroundColor = color.value;
                 card.setAttribute('data-color', color.value);
                 card.setAttribute('data-number', color.number);
                 card.setAttribute('data-name', color.name);
+                card.setAttribute('data-page', currentPageNumber);
                 
-                // Create number element
                 const numberDiv = document.createElement('div');
                 numberDiv.className = 'color-number';
                 numberDiv.textContent = `#${color.number}`;
                 
-                // Create name element
                 const nameDiv = document.createElement('div');
                 nameDiv.className = 'color-name';
                 nameDiv.textContent = color.name;
                 
                 card.appendChild(numberDiv);
                 card.appendChild(nameDiv);
+                
+                // Add drag functionality
                 card.draggable = true;
-
-                // Modify the click event listener
-                card.addEventListener('click', function() {
-                    if (activePolygonIndex !== -1) {
-                        const currentOpacity = getOpacityFromRgba(polygons[activePolygonIndex].color);
-                        const newColor = hexToRgba(color.value, currentOpacity);
-                        
-                        // Update polygon with complete color information
-                        polygons[activePolygonIndex].color = newColor;
-                        polygons[activePolygonIndex].hexColor = color.value;
-                        polygons[activePolygonIndex].colorInfo = {
-                            number: color.number.trim(), // Ensure number is trimmed
-                            name: color.name
-                        };
-                        
-                        floatingColorPicker.style.display = 'none';
-                        activePolygonIndex = -1;
-                        redrawCanvas();
-                        updatePolygonList();
-                    }
-                });
-
-                // Also update the dragstart event
                 card.addEventListener('dragstart', function(e) {
                     const colorData = {
                         value: color.value,
                         number: color.number.trim(),
-                        name: color.name
+                        name: color.name,
+                        pageNumber: currentPageNumber
                     };
                     e.dataTransfer.setData('application/json', JSON.stringify(colorData));
-                    e.dataTransfer.effectAllowed = 'copy';
                 });
 
                 container.appendChild(card);
-            });
+                
+                // Add separator after every 8 colors or at the end
+                if ((i + 1) % 8 === 0 || i === colors.length - 1) {
+                    const separator = document.createElement('div');
+                    separator.className = 'color-separator';
+                    
+                    // Create circle with page number
+                    const circle = document.createElement('div');
+                    circle.className = 'page-circle';
+                    circle.textContent = currentPageNumber;
+                    separator.appendChild(circle);
+                    
+                    container.appendChild(separator);
+                }
+            }
+            
+            // Update global page number for next category
+            const totalPages = Math.ceil(colors.length / 8);
+            globalPageNumber += totalPages;
         });
     }
 
@@ -171,6 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const colorData = JSON.parse(e.dataTransfer.getData('application/json'));
+            console.log('Dropped color data:', colorData); // Debug log
             
             // Find the polygon under the drop position
             for (let i = polygons.length - 1; i >= 0; i--) {
@@ -180,8 +202,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     polygons[i].hexColor = colorData.value;
                     polygons[i].colorInfo = {
                         number: colorData.number,
-                        name: colorData.name
+                        name: colorData.name,
+                        pageNumber: colorData.pageNumber // Store the page number from dragged color
                     };
+                    console.log('Updated polygon:', polygons[i]); // Debug log
                     redrawCanvas();
                     updatePolygonList();
                     break;
@@ -218,9 +242,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Set canvas size
     function resizeCanvas() {
+        const container = canvas.parentElement;
         const maxWidth = Math.min(800, window.innerWidth - 40);
+        
+        // Set the canvas's internal dimensions
         canvas.width = maxWidth;
         canvas.height = 500;
+        
+        // Set the display size to match
+        canvas.style.width = maxWidth + 'px';
+        canvas.style.height = '500px';
+        
         redrawCanvas();
     }
     
@@ -454,19 +486,20 @@ document.addEventListener('DOMContentLoaded', function() {
     canvas.addEventListener('click', handleCanvasClick);
 
     function showColorPicker() {
-        const colorPicker = document.getElementById('floatingColorPicker');
-        colorPicker.style.display = 'block';
+        // Reset blend mode state
+        activeBlendMode = null;
+        originalColor = null;
+        document.getElementById('lightenBtn').classList.remove('active');
+        document.getElementById('darkenBtn').classList.remove('active');
+        document.getElementById('multiplyBtn').classList.remove('active');
         
+        // Existing color picker show logic...
+        floatingColorPicker.style.display = 'block';
         if (activePolygonIndex !== -1) {
             const currentColor = polygons[activePolygonIndex].color;
-            // Set the opacity slider value
             const opacity = Math.round(getOpacityFromRgba(currentColor) * 100);
             opacitySlider.value = opacity;
             opacityValue.textContent = opacity + '%';
-        } else {
-            // Default values if no polygon is selected
-            opacitySlider.value = 100;
-            opacityValue.textContent = '100%';
         }
     }
 
@@ -556,35 +589,89 @@ document.addEventListener('DOMContentLoaded', function() {
     function updatePolygonList() {
         polygonContainer.innerHTML = '';
         polygons.forEach((polygon, index) => {
-            const polygonItem = document.createElement('div');
-            polygonItem.className = 'polygon-item' + (index === selectedPolygonIndex ? ' selected-polygon' : '');
+            const div = document.createElement('div');
+            div.className = 'polygon-item' + (index === selectedPolygonIndex ? ' selected' : '');
             
-            const cutoutCount = polygon.cutouts ? polygon.cutouts.length : 0;
-            const colorInfo = polygon.colorInfo ? 
-                `<div class="color-info">
-                    <div class="wall-color" style="background-color: ${polygon.hexColor || polygon.color}"></div>
+            const colorInfo = polygon.colorInfo || {};
+            const pageInfo = colorInfo.pageNumber ? ` (Page ${colorInfo.pageNumber})` : '';
+            
+            // Store the original wall name or create default one
+            if (!polygon.wallName) {
+                polygon.wallName = `Wall ${index + 1}`;
+            }
+            
+            div.innerHTML = `
+                <div class="wall-name">${polygon.wallName}</div>
+                <div class="wall-details">
+                    ${colorInfo.number ? `#${colorInfo.number}${pageInfo}` : 'No color'}
+                    <div class="wall-color" style="background-color: ${polygon.color}"></div>
+                </div>
+                <div class="color-info">
                     <div class="color-details">
-                        <span class="color-number">#${polygon.colorInfo.number}</span>
-                        <span class="color-name">${polygon.colorInfo.name}</span>
+                        <span class="color-name">${colorInfo.name || 'No name'}</span>
                     </div>
-                </div>` : '';
-
-            polygonItem.innerHTML = `
-                <div class="polygon-info">
-                    <div class="wall-number">#${polygon.wallNumber}</div>
-                    <div class="wall-name">${polygon.wallName}</div>
-                    <div class="wall-details">
-                        Points: ${polygon.points.length}
-                        ${cutoutCount > 0 ? `| Cutouts: ${cutoutCount}` : ''}
-                    </div>
-                    ${colorInfo}
                 </div>
                 <div class="polygon-actions">
-                    <button class="edit-name-btn" onclick="editWallName(${index})">✏️</button>
-                    <button class="delete-btn" onclick="deletePolygon(${index})">🗑️</button>
+                    <button class="edit-name-btn">Edit</button>
+                    <button class="delete-btn">Delete</button>
                 </div>
             `;
-            polygonContainer.appendChild(polygonItem);
+
+            // Add event listeners for edit and delete buttons
+            const editBtn = div.querySelector('.edit-name-btn');
+            editBtn.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent triggering polygon selection
+                const wallNameElement = div.querySelector('.wall-name');
+                const currentName = polygon.wallName; // Use stored wall name
+                
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentName;
+                input.className = 'wall-name-input';
+                
+                wallNameElement.innerHTML = '';
+                wallNameElement.appendChild(input);
+                input.focus();
+                
+                function saveNewName() {
+                    const newName = input.value.trim();
+                    if (newName) {
+                        polygon.wallName = newName; // Update the stored wall name
+                        wallNameElement.textContent = newName;
+                    } else {
+                        wallNameElement.textContent = currentName;
+                    }
+                    input.removeEventListener('blur', saveNewName);
+                    input.removeEventListener('keypress', handleEnter);
+                }
+                
+                function handleEnter(e) {
+                    if (e.key === 'Enter') {
+                        saveNewName();
+                    }
+                }
+                
+                input.addEventListener('blur', saveNewName);
+                input.addEventListener('keypress', handleEnter);
+            });
+
+            // Add delete button handler
+            const deleteBtn = div.querySelector('.delete-btn');
+            deleteBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                deletePolygon(index);
+            });
+
+            // Add click handler for selection
+            div.addEventListener('click', function() {
+                selectedPolygonIndex = index;
+                activePolygonIndex = index;
+                showColorPicker();
+                redrawCanvas();
+                updatePolygonList();
+            });
+
+            polygonContainer.appendChild(div);
         });
     }
 
@@ -664,71 +751,92 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Save canvas functionality
     saveCanvasBtn.addEventListener('click', function() {
-        // First, create a temporary canvas for the complete image
+        // Create a temporary canvas with extra space for wall information
         const tempCanvas = document.createElement('canvas');
-        const tableHeight = 100 + (polygons.length * 30);
-        tempCanvas.width = canvas.width;
-        tempCanvas.height = canvas.height + tableHeight;
+        const wallInfoWidth = 200; // Width for wall information panel
+        tempCanvas.width = canvas.width + wallInfoWidth;
+        tempCanvas.height = canvas.height;
         const tempCtx = tempCanvas.getContext('2d');
 
-        // Fill background
-        tempCtx.fillStyle = 'white';
+        // Fill white background
+        tempCtx.fillStyle = '#FFFFFF';
         tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-        // Copy the main canvas content to the temporary canvas
-        tempCtx.drawImage(canvas, 0, 0);
+        // Draw main canvas content
+        if (backgroundImage) {
+            const scale = Math.min(canvas.width / backgroundImage.width, canvas.height / backgroundImage.height);
+            const x = (canvas.width - backgroundImage.width * scale) / 2;
+            const y = (canvas.height - backgroundImage.height * scale) / 2;
+            tempCtx.drawImage(backgroundImage, x, y, backgroundImage.width * scale, backgroundImage.height * scale);
+        }
 
-        // Draw the table below the canvas content
-        const startY = canvas.height + 20;
-        tempCtx.textAlign = 'left';
-        tempCtx.fillStyle = '#333';
-        tempCtx.font = '14px Arial';
-        
-        // Draw table header
-        tempCtx.fillStyle = '#f5f5f5';
-        tempCtx.fillRect(20, startY, tempCanvas.width - 40, 30);
-        tempCtx.fillStyle = '#333';
-        tempCtx.fillText('Wall #', 30, startY + 20);
-        tempCtx.fillText('Name', 100, startY + 20);
-        tempCtx.fillText('Points', 250, startY + 20);
-        tempCtx.fillText('Cutouts', 300, startY + 20);
-        tempCtx.fillText('Color', 400, startY + 20);
-        tempCtx.fillText('Color Info', 500, startY + 20);
-
-        // Draw table rows
+        // Draw all polygons
         polygons.forEach((polygon, index) => {
-            const rowY = startY + 30 + (index * 30);
-            
-            if (index % 2 === 0) {
-                tempCtx.fillStyle = '#ffffff';
-            } else {
-                tempCtx.fillStyle = '#f9f9f9';
-            }
-            tempCtx.fillRect(20, rowY, tempCanvas.width - 40, 30);
-            
-            tempCtx.fillStyle = '#333';
-            tempCtx.fillText(`#${polygon.wallNumber}`, 30, rowY + 20);
-            tempCtx.fillText(polygon.wallName, 100, rowY + 20);
-            tempCtx.fillText(polygon.points.length.toString(), 250, rowY + 20);
-            tempCtx.fillText((polygon.cutouts ? polygon.cutouts.length : 0).toString(), 300, rowY + 20);
-            
-            // Draw color sample
-            const colorSample = polygon.hexColor || '#ffffff';
-            tempCtx.fillStyle = colorSample;
-            tempCtx.fillRect(400, rowY + 5, 20, 20);
-
-            // Draw color info
-            if (polygon.colorInfo) {
-                tempCtx.fillStyle = '#333';
-                const colorInfoText = `#${polygon.colorInfo.number} - ${polygon.colorInfo.name}`;
-                tempCtx.fillText(colorInfoText, 500, rowY + 20);
-            }
+            tempCtx.beginPath();
+            tempCtx.moveTo(polygon.points[0].x, polygon.points[0].y);
+            polygon.points.forEach(point => {
+                tempCtx.lineTo(point.x, point.y);
+            });
+            tempCtx.closePath();
+            tempCtx.fillStyle = polygon.color;
+            tempCtx.fill();
+            tempCtx.strokeStyle = '#000';
+            tempCtx.lineWidth = 1;
+            tempCtx.stroke();
         });
 
-        const link = document.createElement('a');
-        link.download = 'wall-drawing.png';
-        link.href = tempCanvas.toDataURL('image/png');
-        link.click();
+        // Draw separator line
+        tempCtx.beginPath();
+        tempCtx.moveTo(canvas.width, 0);
+        tempCtx.lineTo(canvas.width, canvas.height);
+        tempCtx.strokeStyle = '#000';
+        tempCtx.lineWidth = 1;
+        tempCtx.stroke();
+
+        // Draw wall information
+        tempCtx.font = '12px Arial';
+        tempCtx.fillStyle = '#000';
+        tempCtx.fillText('Wall Information:', canvas.width + 10, 30);
+
+        let yPos = 60;
+        polygons.forEach((polygon, index) => {
+            const colorInfo = polygon.colorInfo || {};
+            const pageInfo = colorInfo.pageNumber ? `Page ${colorInfo.pageNumber}` : 'No page';
+            const wallName = polygon.wallName || `Wall ${index + 1}`;
+            
+            // Draw wall info
+            tempCtx.fillText(`${wallName}:`, canvas.width + 10, yPos);
+            tempCtx.fillText(`Color: #${colorInfo.number || 'N/A'}`, canvas.width + 10, yPos + 15);
+            tempCtx.fillText(`${colorInfo.name || 'No name'}`, canvas.width + 10, yPos + 30);
+            tempCtx.fillText(`${pageInfo}`, canvas.width + 10, yPos + 45);
+            
+            // Draw color sample
+            tempCtx.fillStyle = polygon.color;
+            tempCtx.fillRect(canvas.width + 150, yPos, 20, 20);
+            tempCtx.strokeStyle = '#000';
+            tempCtx.strokeRect(canvas.width + 150, yPos, 20, 20);
+            
+            tempCtx.fillStyle = '#000';
+            yPos += 65; // Increased spacing to accommodate the additional line
+        });
+
+        // Convert to image and trigger download
+        try {
+            const timestamp = new Date().toISOString().slice(0,19).replace(/[:]/g, '-');
+            tempCanvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `walls_${timestamp}.png`;
+                link.href = url;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        } catch (error) {
+            console.error('Error saving canvas:', error);
+            alert('There was an error saving the image. Please try again.');
+        }
     });
 
     // Initialize tabs and color cards when document is loaded
@@ -829,18 +937,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Modify the canvas click handler and add document click handler
     function handleCanvasClick(e) {
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
+        const coords = getScaledCoordinates(e.clientX, e.clientY);
+        const x = coords.x;
+        const y = coords.y;
+
+        if (isColorPickerActive) {
+            const pixel = ctx.getImageData(x, y, 1, 1).data;
+            const pickedColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
+            const closestColors = findClosestColors(pickedColor);
+            updateMatchCards(closestColors);
+            magnifier.style.display = 'none';
+            return;
+        }
 
         if (isCutoutMode && parentPolygonIndex !== -1) {
-            // Check if click is inside the parent polygon
             if (isPointInPolygon(x, y, polygons[parentPolygonIndex].points)) {
                 cutoutPoints.push({ x, y });
                 redrawCanvas();
             }
         } else {
-            // Normal polygon selection/drawing logic
             let clickedPolygonIndex = -1;
             for (let i = polygons.length - 1; i >= 0; i--) {
                 if (isPointInPolygon(x, y, polygons[i].points)) {
@@ -932,4 +1047,355 @@ document.addEventListener('DOMContentLoaded', function() {
             redrawCanvas();
         }
     });
+
+    // Function to calculate color difference (using Delta E algorithm)
+    function calculateColorDifference(color1, color2) {
+        // Convert hex to RGB
+        const rgb1 = hexToRgb(color1);
+        const rgb2 = hexToRgb(color2);
+        
+        // Simple color difference calculation
+        return Math.sqrt(
+            Math.pow(rgb1.r - rgb2.r, 2) +
+            Math.pow(rgb1.g - rgb2.g, 2) +
+            Math.pow(rgb1.b - rgb2.b, 2)
+        );
+    }
+
+    // Function to convert hex to RGB
+    function hexToRgb(hex) {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+    // Function to convert RGB to hex
+    function rgbToHex(r, g, b) {
+        return '#' + [r, g, b].map(x => {
+            const hex = x.toString(16);
+            return hex.length === 1 ? '0' + hex : hex;
+        }).join('');
+    }
+
+    // Function to find closest colors
+    function findClosestColors(targetColor) {
+        const allColors = [
+            ...colorData.light,
+            ...colorData.medium,
+            ...colorData.dark
+        ];
+        
+        return allColors
+            .map(color => ({
+                ...color,
+                difference: calculateColorDifference(targetColor, color.value)
+            }))
+            .sort((a, b) => a.difference - b.difference)
+            .slice(0, 5);
+    }
+
+    // Function to update match cards
+    function updateMatchCards(colors = null) {
+        for (let i = 1; i <= 5; i++) {
+            const card = document.getElementById(`matchCard${i}`);
+            if (colors && colors[i-1]) {
+                // Show actual color data
+                card.innerHTML = `
+                    <div class="color-sample" style="background-color: ${colors[i-1].value}"></div>
+                    <div class="color-info">
+                        <div class="color-number">#${colors[i-1].number}</div>
+                        <div class="color-name">${colors[i-1].name}</div>
+                    </div>
+                `;
+            } else {
+                // Show empty state
+                card.innerHTML = `
+                    <div class="color-sample empty"></div>
+                    <div class="color-info">
+                        <div class="color-number">--</div>
+                        <div class="color-name">No color selected</div>
+                    </div>
+                `;
+            }
+        }
+    }
+
+    // Call updateMatchCards initially to show empty state
+    updateMatchCards();
+
+    // Add color picker button click handler
+    document.getElementById('colorPickerBtn').addEventListener('click', function() {
+        isColorPickerActive = !isColorPickerActive;
+        this.classList.toggle('active');
+        canvas.style.cursor = isColorPickerActive ? 'crosshair' : 'default';
+        
+        // Hide magnifier when deactivating color picker
+        if (!isColorPickerActive) {
+            magnifier.style.display = 'none';
+        }
+    });
+
+    // Add canvas click handler for color picking
+    canvas.addEventListener('click', function(e) {
+        if (!isColorPickerActive) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Get pixel color
+        const ctx = canvas.getContext('2d');
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        const pickedColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
+        
+        // Find and display closest colors
+        const closestColors = findClosestColors(pickedColor);
+        updateMatchCards(closestColors);
+        
+        // Hide magnifier after picking
+        magnifier.style.display = 'none';
+    });
+
+    // Add these after your existing canvas initialization
+    const magnifier = document.createElement('div');
+    magnifier.className = 'magnifier';
+    document.body.appendChild(magnifier);
+
+    const magnifierCanvas = document.createElement('canvas');
+    magnifierCanvas.width = 200;  // Larger for better quality
+    magnifierCanvas.height = 200;
+    magnifier.appendChild(magnifierCanvas);
+    const magCtx = magnifierCanvas.getContext('2d');
+
+    // Add mousemove handler for magnifier
+    canvas.addEventListener('mousemove', function(e) {
+        if (!isColorPickerActive) return;
+        
+        const coords = getScaledCoordinates(e.clientX, e.clientY);
+        const x = coords.x;
+        const y = coords.y;
+        
+        // Show magnifier
+        magnifier.style.display = 'block';
+        magnifier.style.left = (e.clientX - 50) + 'px';
+        magnifier.style.top = (e.clientY - 50) + 'px';
+        
+        // Draw magnified view
+        magCtx.clearRect(0, 0, magnifierCanvas.width, magnifierCanvas.height);
+        
+        // Calculate the area to magnify
+        const sourceX = Math.max(0, Math.min(x - 12, canvas.width - 25));
+        const sourceY = Math.max(0, Math.min(y - 12, canvas.height - 25));
+        
+        // Draw magnified portion
+        magCtx.drawImage(
+            canvas,
+            sourceX, sourceY, 25, 25,
+            0, 0, magnifierCanvas.width, magnifierCanvas.height
+        );
+    });
+
+    // Hide magnifier when mouse leaves canvas
+    canvas.addEventListener('mouseleave', function() {
+        magnifier.style.display = 'none';
+    });
+
+    // Update color picker click handler
+    canvas.addEventListener('click', function(e) {
+        if (!isColorPickerActive) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Get pixel color
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        const pickedColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
+        
+        // Find and display closest colors
+        const closestColors = findClosestColors(pickedColor);
+        updateMatchCards(closestColors);
+        
+        // Hide magnifier after picking
+        magnifier.style.display = 'none';
+    });
+
+    // Update the blend mode functions
+    function lightenColor(baseColor, amount = 0.3) {
+        const base = hexToRgb(baseColor);
+        return rgbToHex(
+            Math.min(255, Math.round(base.r + (255 - base.r) * amount)),
+            Math.min(255, Math.round(base.g + (255 - base.g) * amount)),
+            Math.min(255, Math.round(base.b + (255 - base.b) * amount))
+        );
+    }
+
+    function darkenColor(baseColor, amount = 0.3) {
+        const base = hexToRgb(baseColor);
+        return rgbToHex(
+            Math.max(0, Math.round(base.r * (1 - amount))),
+            Math.max(0, Math.round(base.g * (1 - amount))),
+            Math.max(0, Math.round(base.b * (1 - amount)))
+        );
+    }
+
+    function multiplyColors(baseColor, backgroundColor) {
+        const base = hexToRgb(baseColor);
+        const background = hexToRgb(backgroundColor);
+        
+        return rgbToHex(
+            Math.round((base.r * background.r) / 255),
+            Math.round((base.g * background.g) / 255),
+            Math.round((base.b * background.b) / 255)
+        );
+    }
+
+    // Update the blend mode button handlers
+    document.getElementById('lightenBtn').addEventListener('click', function() {
+        if (activePolygonIndex === -1) return;
+        
+        const polygon = polygons[activePolygonIndex];
+        
+        if (activeBlendMode === 'lighten') {
+            // Restore original color
+            polygon.color = hexToRgba(originalColor, getOpacityFromRgba(polygon.color));
+            polygon.hexColor = originalColor;
+            activeBlendMode = null;
+            originalColor = null;
+            this.classList.remove('active');
+        } else {
+            // Store original color and apply lighten effect
+            if (!originalColor) {
+                originalColor = polygon.hexColor || rgbaToHex(polygon.color);
+            }
+            const lightened = lightenColor(originalColor);
+            polygon.color = hexToRgba(lightened, getOpacityFromRgba(polygon.color));
+            polygon.hexColor = lightened;
+            activeBlendMode = 'lighten';
+            
+            // Deactivate other blend buttons
+            document.getElementById('darkenBtn').classList.remove('active');
+            document.getElementById('multiplyBtn').classList.remove('active');
+            this.classList.add('active');
+        }
+        
+        redrawCanvas();
+        updatePolygonList();
+    });
+
+    document.getElementById('darkenBtn').addEventListener('click', function() {
+        if (activePolygonIndex === -1) return;
+        
+        const polygon = polygons[activePolygonIndex];
+        
+        if (activeBlendMode === 'darken') {
+            // Restore original color
+            polygon.color = hexToRgba(originalColor, getOpacityFromRgba(polygon.color));
+            polygon.hexColor = originalColor;
+            activeBlendMode = null;
+            originalColor = null;
+            this.classList.remove('active');
+        } else {
+            // Store original color and apply darken effect
+            if (!originalColor) {
+                originalColor = polygon.hexColor || rgbaToHex(polygon.color);
+            }
+            const darkened = darkenColor(originalColor);
+            polygon.color = hexToRgba(darkened, getOpacityFromRgba(polygon.color));
+            polygon.hexColor = darkened;
+            activeBlendMode = 'darken';
+            
+            // Deactivate other blend buttons
+            document.getElementById('lightenBtn').classList.remove('active');
+            document.getElementById('multiplyBtn').classList.remove('active');
+            this.classList.add('active');
+        }
+        
+        redrawCanvas();
+        updatePolygonList();
+    });
+
+    document.getElementById('multiplyBtn').addEventListener('click', function() {
+        if (activePolygonIndex === -1) return;
+        
+        const polygon = polygons[activePolygonIndex];
+        
+        if (activeBlendMode === 'multiply') {
+            // Restore original color
+            polygon.color = hexToRgba(originalColor, getOpacityFromRgba(polygon.color));
+            polygon.hexColor = originalColor;
+            activeBlendMode = null;
+            originalColor = null;
+            this.classList.remove('active');
+        } else {
+            // Store original color and apply multiply effect
+            if (!originalColor) {
+                originalColor = polygon.hexColor || rgbaToHex(polygon.color);
+            }
+            
+            // Get the background color under the polygon
+            const bounds = getPolygonBounds(polygon.points);
+            const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
+            const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
+            
+            // Get background pixel color
+            const pixel = ctx.getImageData(centerX, centerY, 1, 1).data;
+            const backgroundColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
+            
+            const multiplied = multiplyColors(originalColor, backgroundColor);
+            polygon.color = hexToRgba(multiplied, getOpacityFromRgba(polygon.color));
+            polygon.hexColor = multiplied;
+            activeBlendMode = 'multiply';
+            
+            // Deactivate other blend buttons
+            document.getElementById('lightenBtn').classList.remove('active');
+            document.getElementById('darkenBtn').classList.remove('active');
+            this.classList.add('active');
+        }
+        
+        redrawCanvas();
+        updatePolygonList();
+    });
+
+    // Add helper function to get average color under polygon
+    function getAverageColorUnderPolygon(points) {
+        const bounds = getPolygonBounds(points);
+        const imageData = ctx.getImageData(bounds.minX, bounds.minY, 
+            bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+        
+        let r = 0, g = 0, b = 0, count = 0;
+        
+        for (let x = bounds.minX; x < bounds.maxX; x++) {
+            for (let y = bounds.minY; y < bounds.maxY; y++) {
+                if (isPointInPolygon(x, y, points)) {
+                    const i = ((y - bounds.minY) * (bounds.maxX - bounds.minX) + (x - bounds.minX)) * 4;
+                    r += imageData.data[i];
+                    g += imageData.data[i + 1];
+                    b += imageData.data[i + 2];
+                    count++;
+                }
+            }
+        }
+        
+        return rgbToHex(
+            Math.round(r / count),
+            Math.round(g / count),
+            Math.round(b / count)
+        );
+    }
+
+    // Helper function to get polygon bounds
+    function getPolygonBounds(points) {
+        const xs = points.map(p => p.x);
+        const ys = points.map(p => p.y);
+        return {
+            minX: Math.floor(Math.min(...xs)),
+            minY: Math.floor(Math.min(...ys)),
+            maxX: Math.ceil(Math.max(...xs)),
+            maxY: Math.ceil(Math.max(...ys))
+        };
+    }
 });

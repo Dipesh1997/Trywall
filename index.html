@@ -38,6 +38,19 @@
                     <input type="file" id="imageInput" accept="image/*" style="display: none;">
                 </div>
             </div>
+            <div class="color-picker-row">
+                <button id="colorPickerBtn" class="color-picker-btn">
+                    <i class="color-picker-icon">🎨</i>
+                    Color Picker
+                </button>
+                <div class="similar-colors">
+                    <div class="color-match-card" id="matchCard1"></div>
+                    <div class="color-match-card" id="matchCard2"></div>
+                    <div class="color-match-card" id="matchCard3"></div>
+                    <div class="color-match-card" id="matchCard4"></div>
+                    <div class="color-match-card" id="matchCard5"></div>
+                </div>
+            </div>
         </div>
 
         <!-- Right Sidebar - Walls & Controls -->
@@ -53,6 +66,20 @@
                     <label for="opacitySlider">Opacity:</label>
                     <input type="range" id="opacitySlider" min="0" max="100" value="100">
                     <span id="opacityValue">100%</span>
+                </div>
+                <div class="blend-modes">
+                    <button id="lightenBtn" class="blend-mode-btn">
+                        <i class="blend-icon">☀️</i>
+                        Lighten
+                    </button>
+                    <button id="darkenBtn" class="blend-mode-btn">
+                        <i class="blend-icon">🌙</i>
+                        Darken
+                    </button>
+                    <button id="multiplyBtn" class="blend-mode-btn">
+                        <i class="blend-icon">✖️</i>
+                        Multiply
+                    </button>
                 </div>
                 <button id="cutoutBtn" class="cutout-btn">Create Cutout</button>
             </div>

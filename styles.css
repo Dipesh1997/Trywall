@@ -64,8 +64,8 @@ main {
 .color-cards-container {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 8px;
-    padding: 8px;
+    gap: 12px;
+    padding: 12px;
 }
 
 .color-card {
@@ -104,7 +104,12 @@ main {
     padding: 10px;
     gap: 10px;
     min-width: 0;
-    align-items: center;
+    align-items: stretch;
+}
+
+.canvas-container > * {
+    width: 100%;
+    max-width: 100%;
 }
 
 canvas {
@@ -642,4 +647,224 @@ footer {
 .help-section {
     margin-top: auto;
     padding-top: 10px;
+}
+
+/* Add these styles */
+.color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin: 10px 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.color-picker-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 15px;
+    background: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.color-picker-btn.active {
+    background: #f44336;
+}
+
+.color-picker-icon {
+    font-size: 16px;
+}
+
+.similar-colors {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+    width: calc(100% - 150px);
+}
+
+.color-match-card {
+    flex: 1;
+    min-height: 80px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.color-match-card .color-sample {
+    height: 40px;
+    width: 100%;
+}
+
+.color-match-card .color-sample.empty {
+    background: repeating-linear-gradient(
+        45deg,
+        #f5f5f5,
+        #f5f5f5 10px,
+        #eee 10px,
+        #eee 20px
+    );
+}
+
+.color-match-card .color-info {
+    padding: 5px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.color-match-card .color-number {
+    font-weight: bold;
+    color: #333;
+}
+
+.color-match-card .color-name {
+    color: #666;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Add these styles for the color picker magnifier */
+.magnifier {
+    position: fixed;
+    width: 100px;
+    height: 100px;
+    border: 2px solid #333;
+    border-radius: 50%;
+    pointer-events: none;
+    display: none;
+    z-index: 1000;
+    background: white;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(0,0,0,0.3);
+}
+
+.magnifier canvas {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.magnifier::after {
+    content: '+';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: red;
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: 1px 1px 1px white;
+}
+
+/* Add these styles for blend mode buttons */
+.blend-modes {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.blend-mode-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    color: #333;
+    transition: all 0.2s;
+}
+
+.blend-mode-btn:hover {
+    background: #e9ecef;
+}
+
+.blend-mode-btn.active {
+    background: #e3f2fd;
+    border-color: #2196F3;
+    color: #2196F3;
+}
+
+.blend-icon {
+    font-size: 16px;
+}
+
+/* Update floating color picker styles */
+.floating-color-picker {
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.opacity-control {
+    margin-bottom: 10px;
+}
+
+/* Add these styles for the separator and page circle */
+.color-separator {
+    grid-column: 1 / -1;
+    height: 30px;
+    margin: 15px 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.color-separator::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: 1px;
+    background: linear-gradient(to right, 
+        transparent, 
+        rgba(0, 0, 0, 0.1) 20%, 
+        rgba(0, 0, 0, 0.1) 80%, 
+        transparent
+    );
+}
+
+.page-circle {
+    width: 24px;
+    height: 24px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #666;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.page-circle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    border-color: #aaa;
+    color: #333;
 }
