@@ -142,21 +142,118 @@ document.addEventListener('DOMContentLoaded', function() {
     // Search functionality
     document.getElementById('colorSearch').addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
-        const cards = document.querySelectorAll('.color-card');
+        const categories = ['light', 'medium', 'dark'];
         
-        cards.forEach(card => {
-            const colorNumber = card.getAttribute('data-number').toLowerCase();
-            const colorName = card.querySelector('.color-name').textContent.toLowerCase();
-            const colorValue = card.getAttribute('data-color').toLowerCase();
+        // Function to count visible cards in a container
+        function countVisibleCards(container) {
+            return Array.from(container.querySelectorAll('.color-card'))
+                .filter(card => card.style.display !== 'none').length;
+        }
+        
+        // Function to switch to tab
+        function switchToTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-tab') === tabName) {
+                    btn.classList.add('active');
+                }
+            });
             
-            if (colorNumber.includes(searchTerm) || 
-                colorName.includes(searchTerm) || 
-                colorValue.includes(searchTerm)) {
-                card.style.display = '';
+            document.querySelectorAll('.tab-pane').forEach(pane => {
+                pane.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Colors').classList.add('active');
+        }
+        
+        // Get current active tab
+        const activeTabBtn = document.querySelector('.tab-btn.active');
+        const currentTab = activeTabBtn.getAttribute('data-tab');
+        
+        // Perform search in all tabs
+        categories.forEach(category => {
+            const container = document.getElementById(category + 'Colors');
+            const cards = container.querySelectorAll('.color-card');
+            const separators = container.querySelectorAll('.color-separator');
+            let visibleCardsInGroup = 0;
+            let lastVisibleCard = null;
+            
+            // Reset separators
+            separators.forEach(sep => sep.style.display = 'none');
+            
+            // Search logic
+            if (searchTerm.match(/^#?[0-9a-f]{3,6}$/i)) {
+                const searchHex = searchTerm.startsWith('#') ? searchTerm : '#' + searchTerm;
+                const closestColors = findClosestColors(searchHex);
+                updateMatchCards(closestColors);
+                
+                cards.forEach((card, index) => {
+                    const colorValue = card.getAttribute('data-color').toLowerCase();
+                    const isClosestMatch = closestColors.some(color => color.value.toLowerCase() === colorValue);
+                    card.style.display = isClosestMatch ? '' : 'none';
+                    
+                    if (isClosestMatch) {
+                        visibleCardsInGroup++;
+                        lastVisibleCard = card;
+                        
+                        if (visibleCardsInGroup === 8 || index === cards.length - 1) {
+                            const separatorIndex = Math.floor(index / 8);
+                            if (separators[separatorIndex]) {
+                                separators[separatorIndex].style.display = '';
+                                const pageCircle = separators[separatorIndex].querySelector('.page-circle');
+                                if (pageCircle) {
+                                    pageCircle.textContent = card.getAttribute('data-page');
+                                }
+                            }
+                            visibleCardsInGroup = 0;
+                        }
+                    }
+                });
             } else {
-                card.style.display = 'none';
+                cards.forEach((card, index) => {
+                    const colorNumber = card.getAttribute('data-number').toLowerCase();
+                    const colorName = card.querySelector('.color-name').textContent.toLowerCase();
+                    const colorValue = card.getAttribute('data-color').toLowerCase();
+                    
+                    if (colorNumber.includes(searchTerm) || 
+                        colorName.includes(searchTerm) || 
+                        colorValue.includes(searchTerm)) {
+                        card.style.display = '';
+                        visibleCardsInGroup++;
+                        lastVisibleCard = card;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                    
+                    if ((index + 1) % 8 === 0 || index === cards.length - 1) {
+                        if (visibleCardsInGroup > 0 && lastVisibleCard) {
+                            const separatorIndex = Math.floor(index / 8);
+                            if (separators[separatorIndex]) {
+                                separators[separatorIndex].style.display = '';
+                                const pageCircle = separators[separatorIndex].querySelector('.page-circle');
+                                if (pageCircle) {
+                                    pageCircle.textContent = lastVisibleCard.getAttribute('data-page');
+                                }
+                            }
+                        }
+                        visibleCardsInGroup = 0;
+                        lastVisibleCard = null;
+                    }
+                });
             }
         });
+        
+        // Check if current tab has results
+        const currentContainer = document.getElementById(currentTab + 'Colors');
+        if (countVisibleCards(currentContainer) === 0) {
+            // Find first tab with results
+            for (const category of categories) {
+                const container = document.getElementById(category + 'Colors');
+                if (countVisibleCards(container) > 0) {
+                    switchToTab(category);
+                    break;
+                }
+            }
+        }
     });
 
     // Preset color buttons click handler
@@ -762,7 +859,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tempCtx.fillStyle = '#FFFFFF';
         tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
 
-        // Draw main canvas content
+        // Draw background image if exists
         if (backgroundImage) {
             const scale = Math.min(canvas.width / backgroundImage.width, canvas.height / backgroundImage.height);
             const x = (canvas.width - backgroundImage.width * scale) / 2;
@@ -770,28 +867,81 @@ document.addEventListener('DOMContentLoaded', function() {
             tempCtx.drawImage(backgroundImage, x, y, backgroundImage.width * scale, backgroundImage.height * scale);
         }
 
-        // Draw all polygons
+        // Draw all polygons with cutouts
         polygons.forEach((polygon, index) => {
+            tempCtx.save();
+            
+            // Draw main polygon path
             tempCtx.beginPath();
             tempCtx.moveTo(polygon.points[0].x, polygon.points[0].y);
             polygon.points.forEach(point => {
                 tempCtx.lineTo(point.x, point.y);
             });
             tempCtx.closePath();
+
+            // Draw cutouts if they exist
+            if (polygon.cutouts) {
+                polygon.cutouts.forEach(cutout => {
+                    tempCtx.moveTo(cutout[0].x, cutout[0].y);
+                    cutout.forEach(point => {
+                        tempCtx.lineTo(point.x, point.y);
+                    });
+                    tempCtx.closePath();
+                });
+            }
+
+            // Fill polygon with color
             tempCtx.fillStyle = polygon.color;
             tempCtx.fill();
+            
+            // Draw stroke
             tempCtx.strokeStyle = '#000';
             tempCtx.lineWidth = 1;
             tempCtx.stroke();
-        });
 
-        // Draw separator line
-        tempCtx.beginPath();
-        tempCtx.moveTo(canvas.width, 0);
-        tempCtx.lineTo(canvas.width, canvas.height);
-        tempCtx.strokeStyle = '#000';
-        tempCtx.lineWidth = 1;
-        tempCtx.stroke();
+            // Handle cutouts - make them transparent and show background
+            if (polygon.cutouts) {
+                tempCtx.globalCompositeOperation = 'destination-out';
+                
+                polygon.cutouts.forEach(cutout => {
+                    tempCtx.beginPath();
+                    tempCtx.moveTo(cutout[0].x, cutout[0].y);
+                    cutout.forEach(point => {
+                        tempCtx.lineTo(point.x, point.y);
+                    });
+                    tempCtx.closePath();
+                    tempCtx.fill();
+                });
+
+                // Reset composite operation
+                tempCtx.globalCompositeOperation = 'source-over';
+
+                // Redraw background in cutout areas
+                polygon.cutouts.forEach(cutout => {
+                    tempCtx.save();
+                    tempCtx.beginPath();
+                    tempCtx.moveTo(cutout[0].x, cutout[0].y);
+                    cutout.forEach(point => {
+                        tempCtx.lineTo(point.x, point.y);
+                    });
+                    tempCtx.closePath();
+                    tempCtx.clip();
+
+                    if (backgroundImage) {
+                        const scale = Math.min(canvas.width / backgroundImage.width, canvas.height / backgroundImage.height);
+                        const x = (canvas.width - backgroundImage.width * scale) / 2;
+                        const y = (canvas.height - backgroundImage.height * scale) / 2;
+                        tempCtx.drawImage(backgroundImage, x, y, backgroundImage.width * scale, backgroundImage.height * scale);
+                    } else {
+                        tempCtx.fillStyle = '#FFFFFF';
+                        tempCtx.fill();
+                    }
+                    tempCtx.restore();
+                });
+            }
+            
+            tempCtx.restore();
+        });
 
         // Draw wall information
         tempCtx.font = '12px Arial';
@@ -817,7 +967,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tempCtx.strokeRect(canvas.width + 150, yPos, 20, 20);
             
             tempCtx.fillStyle = '#000';
-            yPos += 65; // Increased spacing to accommodate the additional line
+            yPos += 65;
         });
 
         // Convert to image and trigger download
@@ -1082,6 +1232,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to find closest colors
     function findClosestColors(targetColor) {
+        // Ensure valid hex color
+        if (!targetColor.match(/^#[0-9a-f]{6}$/i)) {
+            // Pad 3-digit hex to 6-digit
+            if (targetColor.match(/^#[0-9a-f]{3}$/i)) {
+                targetColor = '#' + targetColor[1] + targetColor[1] + 
+                             targetColor[2] + targetColor[2] + 
+                             targetColor[3] + targetColor[3];
+            } else {
+                return null;
+            }
+        }
+
         const allColors = [
             ...colorData.light,
             ...colorData.medium,
