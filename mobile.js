@@ -3,7 +3,25 @@ document.addEventListener('DOMContentLoaded', function() {
     const canvas = document.getElementById('drawingCanvas');
     const ctx = canvas.getContext('2d');
     
-    // Set canvas size to match screen
+    // State variables
+    let currentPoints = [];
+    let polygons = [];
+    let isDrawing = false;
+    let selectedPolygonIndex = -1;
+    let isCutoutMode = false;
+    let cutoutPoints = [];
+    let activeCategory = 'light';
+    let isDragging = false;
+    let lastPoint = null;
+    
+    // Panel elements
+    const colorPanel = document.getElementById('colorPanel');
+    const wallsPanel = document.getElementById('wallsPanel');
+    const settingsPanel = document.getElementById('settingsPanel');
+    const wallActionMenu = document.getElementById('wallActionMenu');
+    const colorGrid = document.querySelector('.color-grid');
+    
+    // Set canvas size
     function resizeCanvas() {
         const rect = canvas.parentElement.getBoundingClientRect();
         canvas.width = rect.width;
@@ -14,39 +32,54 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     
-    // State variables
-    let currentPoints = [];
-    let polygons = [];
-    let isDrawing = false;
-    let selectedPolygonIndex = -1;
-    let isCutoutMode = false;
-    let cutoutPoints = [];
-    let activeCategory = 'light';
-    
-    // Panel elements
-    const colorPanel = document.getElementById('colorPanel');
-    const toolsPanel = document.getElementById('toolsPanel');
-    const colorGrid = document.querySelector('.color-grid');
-    
     // Navigation buttons
     document.getElementById('colorsBtn').addEventListener('click', function() {
-        colorPanel.classList.add('panel-open');
-        this.classList.add('active');
+        hideAllPanels();
+        colorPanel.classList.add('show');
+        setActiveNavButton(this);
     });
     
-    document.getElementById('toolsBtn').addEventListener('click', function() {
-        toolsPanel.classList.add('panel-open');
-        this.classList.add('active');
+    document.getElementById('wallsBtn').addEventListener('click', function() {
+        hideAllPanels();
+        wallsPanel.classList.add('show');
+        setActiveNavButton(this);
+        updateWallsList();
     });
     
-    // Close panel buttons
+    document.getElementById('settingsBtn').addEventListener('click', function() {
+        hideAllPanels();
+        settingsPanel.classList.add('show');
+        setActiveNavButton(this);
+    });
+    
+    // Floating action button
+    document.getElementById('wallActionBtn').addEventListener('click', function() {
+        wallActionMenu.classList.toggle('show');
+    });
+    
+    // Close panels
     document.querySelectorAll('.close-panel').forEach(btn => {
         btn.addEventListener('click', function() {
-            const panel = this.closest('.color-panel, .tools-panel');
-            panel.classList.remove('panel-open');
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            hideAllPanels();
+            resetNavButtons();
         });
     });
+    
+    function hideAllPanels() {
+        colorPanel.classList.remove('show');
+        wallsPanel.classList.remove('show');
+        settingsPanel.classList.remove('show');
+        wallActionMenu.classList.remove('show');
+    }
+    
+    function setActiveNavButton(button) {
+        resetNavButtons();
+        button.classList.add('active');
+    }
+    
+    function resetNavButtons() {
+        document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    }
     
     // Category buttons
     document.querySelectorAll('.category-btn').forEach(btn => {
@@ -58,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Load colors for a category
+    // Load colors
     function loadColors(category) {
         colorGrid.innerHTML = '';
         const colors = colorData[category] || [];
@@ -88,20 +121,20 @@ document.addEventListener('DOMContentLoaded', function() {
         card.appendChild(swatch);
         card.appendChild(info);
         
-        // Add tap handler for color selection
         card.addEventListener('click', () => {
             if (selectedPolygonIndex !== -1) {
                 polygons[selectedPolygonIndex].color = color.value;
                 redrawCanvas();
-                colorPanel.classList.remove('panel-open');
-                document.getElementById('colorsBtn').classList.remove('active');
+                hideAllPanels();
+                resetNavButtons();
+                updateWallsList();
             }
         });
         
         return card;
     }
     
-    // Add mouse event listeners alongside touch events
+    // Canvas event handlers
     canvas.addEventListener('mousedown', handleStart);
     canvas.addEventListener('mousemove', handleMove);
     canvas.addEventListener('mouseup', handleEnd);
@@ -109,87 +142,76 @@ document.addEventListener('DOMContentLoaded', function() {
     canvas.addEventListener('touchmove', handleMove);
     canvas.addEventListener('touchend', handleEnd);
     
-    // Combined handler for mouse/touch start
     function handleStart(e) {
         e.preventDefault();
+        isDragging = true;
         const point = getEventPoint(e);
+        lastPoint = point;
         
         if (isDrawing) {
             currentPoints.push(point);
-            redrawCanvas();
         } else if (isCutoutMode && selectedPolygonIndex !== -1) {
             cutoutPoints.push(point);
-            redrawCanvas();
         } else {
-            // Check if clicked/touched a polygon
+            // Check for polygon selection
             for (let i = polygons.length - 1; i >= 0; i--) {
                 if (isPointInPolygon(point.x, point.y, polygons[i].points)) {
                     selectedPolygonIndex = i;
-                    redrawCanvas();
-                    // Show color panel when selecting a polygon
-                    colorPanel.classList.add('panel-open');
-                    document.getElementById('colorsBtn').classList.add('active');
+                    colorPanel.classList.add('show');
+                    setActiveNavButton(document.getElementById('colorsBtn'));
                     break;
                 }
             }
         }
+        redrawCanvas();
     }
     
-    // Combined handler for mouse/touch move
     function handleMove(e) {
-        if (!isDrawing && !isCutoutMode) return;
+        if (!isDragging) return;
         e.preventDefault();
         const point = getEventPoint(e);
         
-        if (isDrawing) {
-            currentPoints.push(point);
-        } else if (isCutoutMode && selectedPolygonIndex !== -1) {
-            cutoutPoints.push(point);
+        if (isDrawing || (isCutoutMode && selectedPolygonIndex !== -1)) {
+            // Only add point if it's far enough from the last point
+            if (getDistance(lastPoint, point) > 5) {
+                if (isDrawing) {
+                    currentPoints.push(point);
+                } else {
+                    cutoutPoints.push(point);
+                }
+                lastPoint = point;
+                redrawCanvas();
+            }
         }
-        redrawCanvas();
     }
     
-    // Combined handler for mouse/touch end
     function handleEnd(e) {
-        if (isCutoutMode && cutoutPoints.length >= 3) {
-            polygons[selectedPolygonIndex].cutouts = polygons[selectedPolygonIndex].cutouts || [];
-            polygons[selectedPolygonIndex].cutouts.push([...cutoutPoints]);
-            cutoutPoints = [];
-            isCutoutMode = false;
-            document.getElementById('cutoutBtn').classList.remove('active');
-        }
-        redrawCanvas();
+        isDragging = false;
+        lastPoint = null;
     }
     
-    // Helper function to get coordinates from either mouse or touch event
     function getEventPoint(e) {
         const rect = canvas.getBoundingClientRect();
-        let clientX, clientY;
-        
-        if (e.touches) {
-            clientX = e.touches[0].clientX;
-            clientY = e.touches[0].clientY;
-        } else {
-            clientX = e.clientX;
-            clientY = e.clientY;
-        }
-        
+        const point = e.touches ? e.touches[0] : e;
         return {
-            x: (clientX - rect.left) * (canvas.width / rect.width),
-            y: (clientY - rect.top) * (canvas.height / rect.height)
+            x: (point.clientX - rect.left) * (canvas.width / rect.width),
+            y: (point.clientY - rect.top) * (canvas.height / rect.height)
         };
     }
     
-    // Update tool buttons to be more explicit about modes
+    function getDistance(p1, p2) {
+        return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    }
+    
+    // Tool buttons
     document.getElementById('newWallBtn').addEventListener('click', function() {
         isDrawing = true;
         isCutoutMode = false;
         currentPoints = [];
         selectedPolygonIndex = -1;
-        document.getElementById('cutoutBtn').classList.remove('active');
-        toolsPanel.classList.remove('panel-open');
-        document.getElementById('toolsBtn').classList.remove('active');
         canvas.style.cursor = 'crosshair';
+        hideAllPanels();
+        resetNavButtons();
     });
     
     document.getElementById('finishWallBtn').addEventListener('click', function() {
@@ -202,59 +224,48 @@ document.addEventListener('DOMContentLoaded', function() {
             currentPoints = [];
             isDrawing = false;
             canvas.style.cursor = 'default';
-            redrawCanvas();
+            updateWallsList();
         }
-        toolsPanel.classList.remove('panel-open');
-        document.getElementById('toolsBtn').classList.remove('active');
+        hideAllPanels();
+        resetNavButtons();
+        redrawCanvas();
     });
     
     document.getElementById('cutoutBtn').addEventListener('click', function() {
         if (selectedPolygonIndex !== -1) {
             isCutoutMode = !isCutoutMode;
             isDrawing = false;
-            this.classList.toggle('active');
             cutoutPoints = [];
             canvas.style.cursor = isCutoutMode ? 'crosshair' : 'default';
+            if (!isCutoutMode && cutoutPoints.length >= 3) {
+                polygons[selectedPolygonIndex].cutouts = 
+                    polygons[selectedPolygonIndex].cutouts || [];
+                polygons[selectedPolygonIndex].cutouts.push([...cutoutPoints]);
+                cutoutPoints = [];
+            }
         }
-        toolsPanel.classList.remove('panel-open');
-        document.getElementById('toolsBtn').classList.remove('active');
+        hideAllPanels();
+        resetNavButtons();
+        redrawCanvas();
     });
     
-    // Add clear button functionality
-    document.getElementById('clearBtn').addEventListener('click', function() {
-        if (confirm('Are you sure you want to clear all walls?')) {
-            polygons = [];
-            currentPoints = [];
-            cutoutPoints = [];
-            isDrawing = false;
-            isCutoutMode = false;
-            selectedPolygonIndex = -1;
-            redrawCanvas();
-        }
-        toolsPanel.classList.remove('panel-open');
-        document.getElementById('toolsBtn').classList.remove('active');
-    });
-    
-    // Add save button functionality
-    document.getElementById('saveBtn').addEventListener('click', function() {
-        const link = document.createElement('a');
-        link.download = 'wall-design.png';
-        link.href = canvas.toDataURL();
-        link.click();
-        toolsPanel.classList.remove('panel-open');
-        document.getElementById('toolsBtn').classList.remove('active');
-    });
-    
-    // Update redrawCanvas to show cutout preview
+    // Drawing functions
     function redrawCanvas() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // Draw all polygons
+        // Draw polygons
         polygons.forEach((polygon, index) => {
-            drawPolygon(polygon.points, polygon.color, index === selectedPolygonIndex, polygon.cutouts);
+            drawPolygon(polygon.points, polygon.color, index === selectedPolygonIndex);
+            
+            // Draw cutouts
+            if (polygon.cutouts) {
+                polygon.cutouts.forEach(cutout => {
+                    drawCutout(cutout);
+                });
+            }
         });
         
-        // Draw current points for new wall
+        // Draw current points
         if (currentPoints.length > 0) {
             drawPoints(currentPoints, '#000');
         }
@@ -265,7 +276,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Helper function to draw points
+    function drawPolygon(points, color, isSelected) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.forEach(point => {
+            ctx.lineTo(point.x, point.y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        if (isSelected) {
+            ctx.strokeStyle = '#2196F3';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    }
+    
     function drawPoints(points, color) {
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
@@ -276,9 +302,61 @@ document.addEventListener('DOMContentLoaded', function() {
             ctx.closePath();
         }
         ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
         ctx.stroke();
     }
     
-    // Initialize with light colors
+    function drawCutout(points) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        points.forEach(point => {
+            ctx.lineTo(point.x, point.y);
+        });
+        ctx.closePath();
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+    }
+    
+    function isPointInPolygon(x, y, points) {
+        let inside = false;
+        for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+            const xi = points[i].x, yi = points[i].y;
+            const xj = points[j].x, yj = points[j].y;
+            const intersect = ((yi > y) !== (yj > y)) &&
+                (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+            if (intersect) inside = !inside;
+        }
+        return inside;
+    }
+    
+    // Update walls list
+    function updateWallsList() {
+        const wallsList = document.getElementById('polygonContainer');
+        wallsList.innerHTML = '';
+        
+        polygons.forEach((polygon, index) => {
+            const wallItem = document.createElement('div');
+            wallItem.className = 'wall-item';
+            wallItem.innerHTML = `
+                <div class="wall-color" style="background-color: ${polygon.color}"></div>
+                <div class="wall-info">
+                    <div class="wall-title">Wall ${index + 1}</div>
+                    <div class="wall-subtitle">${polygon.cutouts ? polygon.cutouts.length : 0} cutouts</div>
+                </div>
+            `;
+            
+            wallItem.addEventListener('click', () => {
+                selectedPolygonIndex = index;
+                redrawCanvas();
+                colorPanel.classList.add('show');
+                setActiveNavButton(document.getElementById('colorsBtn'));
+            });
+            
+            wallsList.appendChild(wallItem);
+        });
+    }
+    
+    // Initialize
     loadColors('light');
 }); 
