@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let activeCategory = 'light';
     let isDragging = false;
     let lastPoint = null;
+    let globalPageNumber = 1;
     
     // Panel elements
     const colorPanel = document.getElementById('colorPanel');
@@ -86,8 +87,14 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            activeCategory = this.dataset.category;
-            loadColors(activeCategory);
+            const newCategory = this.dataset.category;
+            
+            // Reset page number only when switching to light category
+            if (newCategory === 'light') {
+                globalPageNumber = 1;
+            }
+            
+            loadColors(newCategory);
         });
     });
     
@@ -96,20 +103,46 @@ document.addEventListener('DOMContentLoaded', function() {
         colorGrid.innerHTML = '';
         const colors = colorData[category] || [];
         
-        colors.forEach(color => {
-            const card = createColorCard(color);
-            colorGrid.appendChild(card);
-        });
+        if (category === 'opus') {
+            // Create simple grid for opus colors without page numbers
+            colors.forEach(color => {
+                const card = createColorCard(color);
+                colorGrid.appendChild(card);
+            });
+        } else {
+            // Regular categories with continuous pagination
+            colors.forEach((color, i) => {
+                const card = createColorCard(color);
+                const pageNumber = Math.floor(i / 8) + globalPageNumber;
+                card.setAttribute('data-page', pageNumber);
+                colorGrid.appendChild(card);
+                
+                // Add separator after every 8 colors or at the end
+                if ((i + 1) % 8 === 0 || i === colors.length - 1) {
+                    if (i < colors.length - 1 || (i + 1) % 8 === 0) {
+                        const separator = document.createElement('div');
+                        separator.className = 'color-separator';
+                        const circle = document.createElement('div');
+                        circle.className = 'page-circle';
+                        circle.textContent = pageNumber;
+                        separator.appendChild(circle);
+                        colorGrid.appendChild(separator);
+                    }
+                }
+            });
+            
+            // Update global page number for next category
+            if (category !== 'light') {
+                globalPageNumber += Math.ceil(colors.length / 8);
+            }
+        }
     }
     
     // Create color card
     function createColorCard(color) {
         const card = document.createElement('div');
         card.className = 'color-card';
-        
-        const swatch = document.createElement('div');
-        swatch.className = 'color-swatch';
-        swatch.style.backgroundColor = color.value;
+        card.style.setProperty('--color-value', color.value);
         
         const info = document.createElement('div');
         info.className = 'color-info';
@@ -118,8 +151,12 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="color-name">${color.name}</div>
         `;
         
-        card.appendChild(swatch);
         card.appendChild(info);
+        
+        // Add data attributes for search
+        card.setAttribute('data-color', color.value);
+        card.setAttribute('data-number', color.number);
+        card.setAttribute('data-name', color.name);
         
         card.addEventListener('click', () => {
             if (selectedPolygonIndex !== -1) {
@@ -129,6 +166,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 resetNavButtons();
                 updateWallsList();
             }
+        });
+        
+        // Add active state visual feedback
+        card.addEventListener('touchstart', () => {
+            card.style.transform = 'scale(0.98)';
+        });
+        
+        card.addEventListener('touchend', () => {
+            card.style.transform = 'scale(1)';
         });
         
         return card;
@@ -356,6 +402,112 @@ document.addEventListener('DOMContentLoaded', function() {
             wallsList.appendChild(wallItem);
         });
     }
+    
+    // Update search functionality
+    document.getElementById('colorSearch').addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        const categories = ['light', 'medium', 'dark', 'opus'];
+        
+        // Function to count visible cards in a container
+        function countVisibleCards(container) {
+            return Array.from(container.querySelectorAll('.color-card'))
+                .filter(card => card.style.display !== 'none').length;
+        }
+        
+        // Function to switch to tab
+        function switchToTab(tabName) {
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (btn.getAttribute('data-category') === tabName) {
+                    btn.classList.add('active');
+                }
+            });
+            loadColors(tabName);
+        }
+        
+        // Get current active tab
+        const activeTab = document.querySelector('.category-btn.active').getAttribute('data-category');
+        
+        // Track visible cards for each category
+        const visibleCounts = {};
+        
+        // Function to match color number with 4-digit pattern for opus
+        function matchesNumberPattern(colorNumber, searchTerm) {
+            // Remove spaces and get last 4 digits if exists
+            const cleanNumber = colorNumber.replace(/\s+/g, '');
+            const last4Digits = cleanNumber.slice(-4);
+            const searchDigits = searchTerm.replace(/\s+/g, '');
+            
+            return last4Digits.includes(searchDigits) || cleanNumber.includes(searchDigits);
+        }
+        
+        // Search in current tab first
+        const cards = document.querySelectorAll('.color-card');
+        let hasVisibleCards = false;
+        
+        cards.forEach(card => {
+            const number = card.getAttribute('data-number').toLowerCase();
+            const name = card.getAttribute('data-name').toLowerCase();
+            const value = card.getAttribute('data-color').toLowerCase();
+            
+            let isVisible = false;
+            if (activeTab === 'opus') {
+                isVisible = number.includes(searchTerm) || 
+                           name.includes(searchTerm) || 
+                           value.includes(searchTerm) ||
+                           matchesNumberPattern(number, searchTerm);
+            } else {
+                isVisible = number.includes(searchTerm) || 
+                           name.includes(searchTerm) || 
+                           value.includes(searchTerm);
+            }
+            
+            card.style.display = isVisible ? '' : 'none';
+            if (isVisible) hasVisibleCards = true;
+        });
+        
+        // If no results in current tab, search other tabs
+        if (!hasVisibleCards) {
+            for (const category of categories) {
+                if (category === activeTab) continue;
+                
+                const colors = colorData[category] || [];
+                const hasMatch = colors.some(color => {
+                    const number = color.number.toLowerCase();
+                    const name = color.name.toLowerCase();
+                    const value = color.value.toLowerCase();
+                    
+                    if (category === 'opus') {
+                        return number.includes(searchTerm) || 
+                               name.includes(searchTerm) || 
+                               value.includes(searchTerm) ||
+                               matchesNumberPattern(number, searchTerm);
+                    }
+                    
+                    return number.includes(searchTerm) || 
+                           name.includes(searchTerm) || 
+                           value.includes(searchTerm);
+                });
+                
+                if (hasMatch) {
+                    switchToTab(category);
+                    break;
+                }
+            }
+        }
+        
+        // Update separators visibility for non-opus categories
+        if (activeTab !== 'opus') {
+            const separators = document.querySelectorAll('.color-separator');
+            separators.forEach(sep => {
+                const prevCard = sep.previousElementSibling;
+                const nextCard = sep.nextElementSibling;
+                sep.style.display = (prevCard && nextCard && 
+                    prevCard.style.display !== 'none' && 
+                    nextCard.style.display !== 'none') ? '' : 'none';
+            });
+        }
+    });
     
     // Initialize
     loadColors('light');
