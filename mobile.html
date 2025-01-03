@@ -5,18 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Color Selector - Mobile</title>
     <link rel="stylesheet" href="mobile.css">
+    <script>
+        (function() {
+            function detectMobile() {
+                return window.innerWidth <= 768 || 
+                       navigator.maxTouchPoints > 0 && 
+                       /Mobi|Android|iPhone/i.test(navigator.userAgent);
+            }
+            
+            if (!detectMobile() && window.location.pathname.includes('mobile.html')) {
+                window.location.href = 'index.html';
+            }
+        })();
+    </script>
 </head>
 <body>
     <div class="app-container">
         <!-- Main Canvas Area -->
         <main class="main-content">
             <canvas id="drawingCanvas"></canvas>
+            
+            <!-- Floating Action Button for Wall Actions -->
+            <button id="wallActionBtn" class="fab-button">
+                <i class="icon">+</i>
+            </button>
         </main>
 
-        <!-- Color Picker Panel (Initially Hidden) -->
-        <div class="color-panel" id="colorPanel">
+        <!-- Wall Actions Menu (Initially Hidden) -->
+        <div class="action-menu" id="wallActionMenu">
+            <button class="action-item" id="newWallBtn">
+                <i class="icon">➕</i>
+                New Wall
+            </button>
+            <button class="action-item" id="finishWallBtn">
+                <i class="icon">✓</i>
+                Finish Wall
+            </button>
+            <button class="action-item" id="cutoutBtn">
+                <i class="icon">✂️</i>
+                Create Cutout
+            </button>
+        </div>
+
+        <!-- Color Panel (Slides up from bottom) -->
+        <div class="bottom-panel" id="colorPanel">
             <div class="panel-header">
-                <h2>Select Color</h2>
+                <div class="panel-title">Colors</div>
                 <button class="close-panel">×</button>
             </div>
             
@@ -32,50 +66,76 @@
             <div class="color-grid"></div>
         </div>
 
-        <!-- Tools Panel (Initially Hidden) -->
-        <div class="tools-panel" id="toolsPanel">
+        <!-- Walls Panel (Slides up from bottom) -->
+        <div class="bottom-panel" id="wallsPanel">
             <div class="panel-header">
-                <h2>Tools</h2>
+                <div class="panel-title">Walls</div>
                 <button class="close-panel">×</button>
             </div>
-            
-            <div class="tool-options">
-                <button class="tool-btn" id="newWallBtn">
-                    <i class="icon">➕</i>
-                    New Wall
-                </button>
-                <button class="tool-btn" id="finishWallBtn">
-                    <i class="icon">✓</i>
-                    Finish Wall
-                </button>
-                <button class="tool-btn" id="cutoutBtn">
-                    <i class="icon">✂️</i>
-                    Create Cutout
-                </button>
-                <button class="tool-btn" id="clearBtn">
-                    <i class="icon">🗑️</i>
-                    Clear All
-                </button>
-                <button class="tool-btn" id="saveBtn">
-                    <i class="icon">💾</i>
-                    Save Image
-                </button>
+            <div class="walls-list" id="polygonContainer"></div>
+        </div>
+
+        <!-- Settings Panel (Slides up from bottom) -->
+        <div class="bottom-panel" id="settingsPanel">
+            <div class="panel-header">
+                <div class="panel-title">Settings</div>
+                <button class="close-panel">×</button>
+            </div>
+            <div class="settings-content">
+                <div class="setting-group">
+                    <h3>Wall Options</h3>
+                    <div class="opacity-control">
+                        <label for="opacitySlider">Opacity:</label>
+                        <input type="range" id="opacitySlider" min="0" max="100" value="100">
+                        <span id="opacityValue">100%</span>
+                    </div>
+                    <div class="blend-modes">
+                        <button id="lightenBtn" class="blend-mode-btn">
+                            <i class="icon">☀️</i>
+                            Lighten
+                        </button>
+                        <button id="darkenBtn" class="blend-mode-btn">
+                            <i class="icon">🌙</i>
+                            Darken
+                        </button>
+                        <button id="multiplyBtn" class="blend-mode-btn">
+                            <i class="icon">✖️</i>
+                            Multiply
+                        </button>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h3>Image</h3>
+                    <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                    <button id="uploadImageBtn" class="setting-btn">
+                        <i class="icon">🖼️</i>
+                        Upload Background
+                    </button>
+                    <button id="saveBtn" class="setting-btn">
+                        <i class="icon">💾</i>
+                        Save Design
+                    </button>
+                    <button id="clearBtn" class="setting-btn danger">
+                        <i class="icon">🗑️</i>
+                        Clear All
+                    </button>
+                </div>
             </div>
         </div>
 
-        <!-- Bottom Navigation -->
+        <!-- Fixed Bottom Navigation -->
         <nav class="bottom-nav">
             <button class="nav-btn" id="colorsBtn">
                 <i class="icon">🎨</i>
-                Colors
+                <span>Colors</span>
             </button>
             <button class="nav-btn" id="wallsBtn">
                 <i class="icon">🏠</i>
-                Walls
+                <span>Walls</span>
             </button>
-            <button class="nav-btn" id="toolsBtn">
-                <i class="icon">🛠️</i>
-                Tools
+            <button class="nav-btn" id="settingsBtn">
+                <i class="icon">⚙️</i>
+                <span>Settings</span>
             </button>
         </nav>
     </div>
