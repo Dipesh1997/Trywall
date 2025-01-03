@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Color Selector - Mobile</title>
+    <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Main Canvas Area -->
+        <main class="main-content">
+            <canvas id="drawingCanvas"></canvas>
+        </main>
+
+        <!-- Color Picker Panel (Initially Hidden) -->
+        <div class="color-panel" id="colorPanel">
+            <div class="panel-header">
+                <h2>Select Color</h2>
+                <button class="close-panel">×</button>
+            </div>
+            
+            <!-- Color Categories -->
+            <div class="color-categories">
+                <button class="category-btn active" data-category="light">Light</button>
+                <button class="category-btn" data-category="medium">Medium</button>
+                <button class="category-btn" data-category="dark">Dark</button>
+                <button class="category-btn" data-category="opus">Opus</button>
+            </div>
+            
+            <!-- Color Grid -->
+            <div class="color-grid"></div>
+        </div>
+
+        <!-- Tools Panel (Initially Hidden) -->
+        <div class="tools-panel" id="toolsPanel">
+            <div class="panel-header">
+                <h2>Tools</h2>
+                <button class="close-panel">×</button>
+            </div>
+            
+            <div class="tool-options">
+                <button class="tool-btn" id="newWallBtn">
+                    <i class="icon">➕</i>
+                    New Wall
+                </button>
+                <button class="tool-btn" id="finishWallBtn">
+                    <i class="icon">✓</i>
+                    Finish Wall
+                </button>
+                <button class="tool-btn" id="cutoutBtn">
+                    <i class="icon">✂️</i>
+                    Create Cutout
+                </button>
+                <button class="tool-btn" id="clearBtn">
+                    <i class="icon">🗑️</i>
+                    Clear All
+                </button>
+                <button class="tool-btn" id="saveBtn">
+                    <i class="icon">💾</i>
+                    Save Image
+                </button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn" id="colorsBtn">
+                <i class="icon">🎨</i>
+                Colors
+            </button>
+            <button class="nav-btn" id="wallsBtn">
+                <i class="icon">🏠</i>
+                Walls
+            </button>
+            <button class="nav-btn" id="toolsBtn">
+                <i class="icon">🛠️</i>
+                Tools
+            </button>
+        </nav>
+    </div>
+
+    <script src="colorData.js"></script>
+    <script src="mobile.js"></script>
+</body>
+</html> 
