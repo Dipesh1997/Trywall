@@ -69,83 +69,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize color cards for each category
     function initializeColorCards() {
-        const categories = ['light', 'medium', 'dark'];
-        let globalPageNumber = 1; // Starting page number
+        const categories = ['light', 'medium', 'dark', 'opus'];
+        let globalPageNumber = 1;
         
         categories.forEach(category => {
+            if (category === 'opus') {
+                initializeOpusTab();
+                return;
+            }
+            
             const container = document.getElementById(category + 'Colors');
             if (!container) return;
             
             container.innerHTML = '';
-            const colors = colorData[category];
+            const colors = colorData[category] || [];
             
-            // Process colors in groups of 8
-            for (let i = 0; i < colors.length; i++) {
-                const color = colors[i];
-                const currentPageNumber = Math.floor(i / 8) + globalPageNumber; // Calculate current page
-                
-                // Create color card
-                const card = document.createElement('div');
-                card.className = 'color-card';
-                card.style.backgroundColor = color.value;
-                card.setAttribute('data-color', color.value);
-                card.setAttribute('data-number', color.number);
-                card.setAttribute('data-name', color.name);
-                card.setAttribute('data-page', currentPageNumber);
-                
-                const numberDiv = document.createElement('div');
-                numberDiv.className = 'color-number';
-                numberDiv.textContent = `#${color.number}`;
-                
-                const nameDiv = document.createElement('div');
-                nameDiv.className = 'color-name';
-                nameDiv.textContent = color.name;
-                
-                card.appendChild(numberDiv);
-                card.appendChild(nameDiv);
-                
-                // Add drag functionality
-                card.draggable = true;
-                card.addEventListener('dragstart', function(e) {
-                    const colorData = {
-                        value: color.value,
-                        number: color.number.trim(),
-                        name: color.name,
-                        pageNumber: currentPageNumber
-                    };
-                    e.dataTransfer.setData('application/json', JSON.stringify(colorData));
-                });
-
+            colors.forEach((color, i) => {
+                const card = createColorCard(color);
+                card.setAttribute('data-page', Math.floor(i / 8) + globalPageNumber);
                 container.appendChild(card);
                 
-                // Add separator after every 8 colors or at the end
                 if ((i + 1) % 8 === 0 || i === colors.length - 1) {
                     const separator = document.createElement('div');
                     separator.className = 'color-separator';
-                    
-                    // Create circle with page number
                     const circle = document.createElement('div');
                     circle.className = 'page-circle';
-                    circle.textContent = currentPageNumber;
+                    circle.textContent = Math.floor(i / 8) + globalPageNumber;
                     separator.appendChild(circle);
-                    
                     container.appendChild(separator);
                 }
-            }
+            });
             
-            // Update global page number for next category
-            const totalPages = Math.ceil(colors.length / 8);
-            globalPageNumber += totalPages;
+            if (category !== 'opus') {
+                globalPageNumber += Math.ceil(colors.length / 8);
+            }
         });
     }
 
     // Search functionality
     document.getElementById('colorSearch').addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase();
-        const categories = ['light', 'medium', 'dark'];
+        const categories = ['light', 'medium', 'dark', 'opus'];
         
         // Function to count visible cards in a container
         function countVisibleCards(container) {
+            if (!container) return 0;
             return Array.from(container.querySelectorAll('.color-card'))
                 .filter(card => card.style.display !== 'none').length;
         }
@@ -169,60 +137,85 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeTabBtn = document.querySelector('.tab-btn.active');
         const currentTab = activeTabBtn.getAttribute('data-tab');
         
+        // Track visible cards for each category
+        const visibleCounts = {};
+        
         // Perform search in all tabs
         categories.forEach(category => {
             const container = document.getElementById(category + 'Colors');
-            const cards = container.querySelectorAll('.color-card');
-            const separators = container.querySelectorAll('.color-separator');
-            let visibleCardsInGroup = 0;
-            let lastVisibleCard = null;
+            if (!container) return;
             
-            // Reset separators
-            separators.forEach(sep => sep.style.display = 'none');
-            
-            // Search logic
-            if (searchTerm.match(/^#?[0-9a-f]{3,6}$/i)) {
-                const searchHex = searchTerm.startsWith('#') ? searchTerm : '#' + searchTerm;
-                const closestColors = findClosestColors(searchHex);
-                updateMatchCards(closestColors);
+            if (category === 'opus') {
+                // Handle opus tab search
+                const subcategories = container.querySelectorAll('.opus-subcategory');
+                let totalVisibleCards = 0;
+                const shownColors = new Set(); // Track shown colors to prevent duplicates
+                
+                // Function to match color number with 4-digit pattern
+                function matchesNumberPattern(colorNumber, searchTerm) {
+                    // Remove spaces and get last 4 digits if exists
+                    const cleanNumber = colorNumber.replace(/\s+/g, '');
+                    const last4Digits = cleanNumber.slice(-4);
+                    const searchDigits = searchTerm.replace(/\s+/g, '');
+                    
+                    return last4Digits.includes(searchDigits) || cleanNumber.includes(searchDigits);
+                }
+                
+                subcategories.forEach(subcat => {
+                    const cards = subcat.querySelectorAll('.color-card');
+                    let hasVisibleCards = false;
+        
+        cards.forEach(card => {
+            const colorNumber = card.getAttribute('data-number').toLowerCase();
+                        const colorName = card.getAttribute('data-name').toLowerCase();
+                        const colorValue = card.getAttribute('data-color').toLowerCase();
+                        
+                        // Check if color is already shown
+                        if (shownColors.has(colorValue)) {
+                            card.style.display = 'none';
+                            return;
+                        }
+                        
+                        if (colorNumber.includes(searchTerm) || 
+                            colorName.includes(searchTerm) || 
+                            colorValue.includes(searchTerm) ||
+                            matchesNumberPattern(colorNumber, searchTerm)) {
+                            card.style.display = '';
+                            hasVisibleCards = true;
+                            totalVisibleCards++;
+                            shownColors.add(colorValue); // Add to shown colors
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                    
+                    subcat.style.display = hasVisibleCards ? '' : 'none';
+                });
+                
+                visibleCounts[category] = totalVisibleCards;
+            } else {
+                // Handle regular tabs
+                const cards = container.querySelectorAll('.color-card');
+                const separators = container.querySelectorAll('.color-separator');
+                let visibleCardsInGroup = 0;
+                let lastVisibleCard = null;
+                
+                separators.forEach(sep => sep.style.display = 'none');
                 
                 cards.forEach((card, index) => {
-                    const colorValue = card.getAttribute('data-color').toLowerCase();
-                    const isClosestMatch = closestColors.some(color => color.value.toLowerCase() === colorValue);
-                    card.style.display = isClosestMatch ? '' : 'none';
-                    
-                    if (isClosestMatch) {
-                        visibleCardsInGroup++;
-                        lastVisibleCard = card;
-                        
-                        if (visibleCardsInGroup === 8 || index === cards.length - 1) {
-                            const separatorIndex = Math.floor(index / 8);
-                            if (separators[separatorIndex]) {
-                                separators[separatorIndex].style.display = '';
-                                const pageCircle = separators[separatorIndex].querySelector('.page-circle');
-                                if (pageCircle) {
-                                    pageCircle.textContent = card.getAttribute('data-page');
-                                }
-                            }
-                            visibleCardsInGroup = 0;
-                        }
-                    }
-                });
-            } else {
-                cards.forEach((card, index) => {
                     const colorNumber = card.getAttribute('data-number').toLowerCase();
-                    const colorName = card.querySelector('.color-name').textContent.toLowerCase();
-                    const colorValue = card.getAttribute('data-color').toLowerCase();
-                    
-                    if (colorNumber.includes(searchTerm) || 
-                        colorName.includes(searchTerm) || 
-                        colorValue.includes(searchTerm)) {
-                        card.style.display = '';
+                    const colorName = card.getAttribute('data-name').toLowerCase();
+            const colorValue = card.getAttribute('data-color').toLowerCase();
+            
+            if (colorNumber.includes(searchTerm) || 
+                colorName.includes(searchTerm) || 
+                colorValue.includes(searchTerm)) {
+                card.style.display = '';
                         visibleCardsInGroup++;
                         lastVisibleCard = card;
-                    } else {
-                        card.style.display = 'none';
-                    }
+            } else {
+                card.style.display = 'none';
+            }
                     
                     if ((index + 1) % 8 === 0 || index === cards.length - 1) {
                         if (visibleCardsInGroup > 0 && lastVisibleCard) {
@@ -236,21 +229,25 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                         visibleCardsInGroup = 0;
-                        lastVisibleCard = null;
                     }
                 });
+                
+                visibleCounts[category] = countVisibleCards(container);
             }
         });
         
-        // Check if current tab has results
-        const currentContainer = document.getElementById(currentTab + 'Colors');
-        if (countVisibleCards(currentContainer) === 0) {
-            // Find first tab with results
-            for (const category of categories) {
-                const container = document.getElementById(category + 'Colors');
-                if (countVisibleCards(container) > 0) {
-                    switchToTab(category);
-                    break;
+        // Switch to tab with results if current tab has no results
+        if (visibleCounts[currentTab] === 0) {
+            // First check opus tab if it has results
+            if (visibleCounts['opus'] > 0) {
+                switchToTab('opus');
+            } else {
+                // Otherwise find first tab with results
+                for (const category of categories) {
+                    if (visibleCounts[category] > 0) {
+                        switchToTab(category);
+                        break;
+                    }
                 }
             }
         }
@@ -290,8 +287,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const colorData = JSON.parse(e.dataTransfer.getData('application/json'));
             console.log('Dropped color data:', colorData); // Debug log
-            
-            // Find the polygon under the drop position
+
+        // Find the polygon under the drop position
             for (let i = polygons.length - 1; i >= 0; i--) {
                 if (isPointInPolygon(x, y, polygons[i].points)) {
                     const currentOpacity = getOpacityFromRgba(polygons[i].color);
@@ -303,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         pageNumber: colorData.pageNumber // Store the page number from dragged color
                     };
                     console.log('Updated polygon:', polygons[i]); // Debug log
-                    redrawCanvas();
+            redrawCanvas();
                     updatePolygonList();
                     break;
                 }
@@ -441,7 +438,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 for (let i = 1; i < cutout.length; i++) {
                     ctx.lineTo(cutout[i].x, cutout[i].y);
                 }
-                ctx.closePath();
+        ctx.closePath();
             }
         }
 
@@ -975,11 +972,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const timestamp = new Date().toISOString().slice(0,19).replace(/[:]/g, '-');
             tempCanvas.toBlob(function(blob) {
                 const url = URL.createObjectURL(blob);
-                const link = document.createElement('a');
+        const link = document.createElement('a');
                 link.download = `walls_${timestamp}.png`;
                 link.href = url;
                 document.body.appendChild(link);
-                link.click();
+        link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
             }, 'image/png');
@@ -1234,46 +1231,84 @@ document.addEventListener('DOMContentLoaded', function() {
     function findClosestColors(targetColor) {
         // Ensure valid hex color
         if (!targetColor.match(/^#[0-9a-f]{6}$/i)) {
-            // Pad 3-digit hex to 6-digit
             if (targetColor.match(/^#[0-9a-f]{3}$/i)) {
                 targetColor = '#' + targetColor[1] + targetColor[1] + 
                              targetColor[2] + targetColor[2] + 
                              targetColor[3] + targetColor[3];
             } else {
-                return null;
+                return { regular: [], opus: [] };
             }
         }
 
-        const allColors = [
+        const regularColors = [
             ...colorData.light,
             ...colorData.medium,
             ...colorData.dark
         ];
         
-        return allColors
+        const opusColors = colorData.opus || [];
+        
+        // Find matches in regular colors
+        const regularMatches = regularColors
             .map(color => ({
                 ...color,
                 difference: calculateColorDifference(targetColor, color.value)
             }))
             .sort((a, b) => a.difference - b.difference)
             .slice(0, 5);
+        
+        // Find matches in opus colors
+        const opusMatches = opusColors
+            .map(color => ({
+                ...color,
+                difference: calculateColorDifference(targetColor, color.value)
+            }))
+            .sort((a, b) => a.difference - b.difference)
+            .slice(0, 5);
+        
+        return { regular: regularMatches, opus: opusMatches };
     }
 
     // Function to update match cards
     function updateMatchCards(colors = null) {
+        // Update regular match cards
         for (let i = 1; i <= 5; i++) {
             const card = document.getElementById(`matchCard${i}`);
-            if (colors && colors[i-1]) {
-                // Show actual color data
+            const color = colors?.regular?.[i-1];
+            
+            if (color) {
                 card.innerHTML = `
-                    <div class="color-sample" style="background-color: ${colors[i-1].value}"></div>
+                    <div class="color-sample" style="background-color: ${color.value}"></div>
                     <div class="color-info">
-                        <div class="color-number">#${colors[i-1].number}</div>
-                        <div class="color-name">${colors[i-1].name}</div>
+                        <div class="color-number">#${color.number}</div>
+                        <div class="color-name">${color.name}</div>
                     </div>
                 `;
             } else {
-                // Show empty state
+                card.innerHTML = `
+                    <div class="color-sample empty"></div>
+                    <div class="color-info">
+                        <div class="color-number">--</div>
+                        <div class="color-name">No color selected</div>
+                    </div>
+                `;
+            }
+        }
+        
+        // Update opus match cards
+        for (let i = 1; i <= 5; i++) {
+            const card = document.getElementById(`opusMatchCard${i}`);
+            const color = colors?.opus?.[i-1];
+            
+            if (color) {
+                card.innerHTML = `
+                    <div class="color-sample" style="background-color: ${color.value}"></div>
+                    <div class="color-info">
+                        <div class="color-number">#${color.number}</div>
+                        <div class="color-name">${color.name}</div>
+                    </div>
+                `;
+            } else {
                 card.innerHTML = `
                     <div class="color-sample empty"></div>
                     <div class="color-info">
@@ -1309,7 +1344,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const y = e.clientY - rect.top;
         
         // Get pixel color
-        const ctx = canvas.getContext('2d');
         const pixel = ctx.getImageData(x, y, 1, 1).data;
         const pickedColor = rgbToHex(pixel[0], pixel[1], pixel[2]);
         
@@ -1559,5 +1593,113 @@ document.addEventListener('DOMContentLoaded', function() {
             maxX: Math.ceil(Math.max(...xs)),
             maxY: Math.ceil(Math.max(...ys))
         };
+    }
+
+    // Add this helper function to create color cards
+    function createColorCard(color) {
+        const card = document.createElement('div');
+        card.className = 'color-card';
+        card.style.backgroundColor = color.value;
+        card.setAttribute('data-color', color.value);
+        card.setAttribute('data-number', color.number);
+        card.setAttribute('data-name', color.name);
+        
+        const numberDiv = document.createElement('div');
+        numberDiv.className = 'color-number';
+        numberDiv.textContent = `#${color.number}`;
+        
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'color-name';
+        nameDiv.textContent = color.name;
+        
+        card.appendChild(numberDiv);
+        card.appendChild(nameDiv);
+        
+        // Add drag functionality
+        card.draggable = true;
+        card.addEventListener('dragstart', function(e) {
+            const colorData = {
+                value: color.value,
+                number: color.number.trim(),
+                name: color.name
+            };
+            e.dataTransfer.setData('application/json', JSON.stringify(colorData));
+        });
+        
+        return card;
+    }
+
+    // Update the initializeOpusTab function to use the container correctly
+    function initializeOpusTab() {
+        const opusContainer = document.getElementById('opusColors');
+        const subTabsContainer = opusContainer.querySelector('.opus-subtabs');
+        const opusContent = opusContainer.querySelector('.opus-content');
+        
+        // Clear existing content
+        subTabsContainer.innerHTML = '';
+        opusContent.innerHTML = '';
+        
+        // Group colors by their prefix
+        const colorsByPrefix = {};
+        const colors = colorData.opus || [];
+        
+        colors.forEach(color => {
+            const prefix = color.number.substring(0, 2).toUpperCase();
+            if (!colorsByPrefix[prefix]) {
+                colorsByPrefix[prefix] = [];
+            }
+            colorsByPrefix[prefix].push(color);
+        });
+        
+        // Create "All" button first
+        const allTab = document.createElement('button');
+        allTab.className = 'opus-subtab active';  // Make "All" active by default
+        allTab.textContent = 'All';
+        allTab.setAttribute('data-prefix', 'all');
+        subTabsContainer.appendChild(allTab);
+        
+        // Create content container for all colors
+        const allContent = document.createElement('div');
+        allContent.className = 'opus-subcategory active';  // Make it visible by default
+        allContent.id = 'opus-all';
+        colors.forEach(color => {
+            const card = createColorCard(color);
+            allContent.appendChild(card);
+        });
+        opusContent.appendChild(allContent);
+        
+        // Create other sub-tabs
+        Object.keys(colorsByPrefix).sort().forEach(prefix => {
+            const subTab = document.createElement('button');
+            subTab.className = 'opus-subtab';
+            subTab.textContent = prefix;
+            subTab.setAttribute('data-prefix', prefix);
+            subTabsContainer.appendChild(subTab);
+            
+            const subContent = document.createElement('div');
+            subContent.className = 'opus-subcategory';
+            subContent.id = `opus-${prefix}`;
+            
+            colorsByPrefix[prefix].forEach(color => {
+                const card = createColorCard(color);
+                subContent.appendChild(card);
+            });
+            
+            opusContent.appendChild(subContent);
+        });
+        
+        // Add click handlers for sub-tabs
+        const subTabs = subTabsContainer.querySelectorAll('.opus-subtab');
+        subTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                subTabs.forEach(t => t.classList.remove('active'));
+                opusContainer.querySelectorAll('.opus-subcategory').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const prefix = tab.getAttribute('data-prefix');
+                const contentId = prefix === 'all' ? 'opus-all' : `opus-${prefix}`;
+                document.getElementById(contentId).classList.add('active');
+            });
+        });
     }
 });

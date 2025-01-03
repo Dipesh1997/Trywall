@@ -78,7 +78,16 @@ main {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.25rem;
+    gap: 4px;
+    min-height: 80px;
+}
+
+.color-card::before {
+    content: '';
+    width: 100%;
+    height: 40px;
+    background-color: inherit;
+    border-radius: 2px;
 }
 
 .color-card:hover {
@@ -87,14 +96,16 @@ main {
 }
 
 .color-number {
-    font-size: 0.8rem;
+    font-size: 12px;
     color: #666;
 }
 
 .color-name {
-    font-size: 0.9rem;
+    font-size: 11px;
     text-align: center;
+    color: #333;
     word-break: break-word;
+    max-width: 100%;
 }
 
 .canvas-container {
@@ -492,8 +503,7 @@ footer {
 
 .tab-pane {
     display: none;
-    max-height: calc(100vh - 200px);
-    overflow-y: auto;
+    width: 100%;
 }
 
 .tab-pane.active {
@@ -686,25 +696,51 @@ footer {
 
 .similar-colors {
     display: flex;
-    gap: 10px;
-    flex: 1;
-    width: calc(100% - 150px);
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.similar-colors-row {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    width: 100%;
 }
 
 .color-match-card {
     flex: 1;
-    min-height: 80px;
-    background: #f5f5f5;
-    border-radius: 4px;
+    min-width: 0;
+    background: white;
     border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
 }
 
 .color-match-card .color-sample {
     height: 40px;
     width: 100%;
+}
+
+.color-match-card .color-info {
+    padding: 4px;
+    text-align: center;
+}
+
+.color-match-card .color-number {
+    font-weight: bold;
+    font-size: 12px;
+    color: #333;
+}
+
+.color-match-card .color-name {
+    font-size: 11px;
+    color: #666;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .color-match-card .color-sample.empty {
@@ -715,25 +751,6 @@ footer {
         #eee 10px,
         #eee 20px
     );
-}
-
-.color-match-card .color-info {
-    padding: 5px;
-    font-size: 12px;
-    text-align: center;
-}
-
-.color-match-card .color-number {
-    font-weight: bold;
-    color: #333;
-}
-
-.color-match-card .color-name {
-    color: #666;
-    font-size: 11px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
 }
 
 /* Add these styles for the color picker magnifier */
@@ -867,4 +884,145 @@ footer {
     box-shadow: 0 3px 6px rgba(0,0,0,0.15);
     border-color: #aaa;
     color: #333;
+}
+
+/* Add styles for opus subtabs */
+.opus-subtabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.opus-subtab {
+    padding: 8px 16px;
+    border: 1px solid #dee2e6;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.3s;
+    color: #495057;
+    text-align: center;
+}
+
+.opus-subtab:hover {
+    background: #e9ecef;
+}
+
+.opus-subtab.active {
+    background: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.opus-content {
+    width: 100%;
+    padding: 0 12px;
+}
+
+.opus-subcategory {
+    display: none;
+    width: 100%;
+}
+
+.opus-subcategory.active {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 12px;
+    padding-bottom: 12px;
+}
+
+.color-cards-container.tab-pane {
+    width: 100%;
+}
+
+/* Update tab pane styles */
+.tab-pane {
+    display: none;
+    width: 100%;
+}
+
+.tab-pane.active {
+    display: block;
+}
+
+/* Update opus specific styles */
+#opusColors {
+    width: 100%;
+    overflow-y: auto;
+}
+
+.opus-subtabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    width: 100%;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.opus-content {
+    width: 100%;
+    padding: 0 12px;
+}
+
+.opus-subcategory {
+    display: none;
+    width: 100%;
+}
+
+.opus-subcategory.active {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 12px;
+    padding-bottom: 12px;
+}
+
+/* Update color card styles */
+.color-card {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-height: 80px;
+}
+
+.color-card::before {
+    content: '';
+    width: 100%;
+    height: 40px;
+    background-color: inherit;
+    border-radius: 2px;
+}
+
+.color-number {
+    font-size: 12px;
+    color: #666;
+}
+
+.color-name {
+    font-size: 11px;
+    text-align: center;
+    color: #333;
+    word-break: break-word;
+    max-width: 100%;
 }
