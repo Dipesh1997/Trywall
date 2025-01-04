@@ -87,14 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
             this.classList.add('active');
-            const newCategory = this.dataset.category;
-            
-            // Reset page number only when switching to light category
-            if (newCategory === 'light') {
-                globalPageNumber = 1;
-            }
-            
-            loadColors(newCategory);
+            loadColors(this.dataset.category);
         });
     });
     
@@ -110,30 +103,65 @@ document.addEventListener('DOMContentLoaded', function() {
                 colorGrid.appendChild(card);
             });
         } else {
-            // Regular categories with continuous pagination
-            colors.forEach((color, i) => {
-                const card = createColorCard(color);
-                const pageNumber = Math.floor(i / 8) + globalPageNumber;
-                card.setAttribute('data-page', pageNumber);
-                colorGrid.appendChild(card);
-                
-                // Add separator after every 8 colors or at the end
-                if ((i + 1) % 8 === 0 || i === colors.length - 1) {
-                    if (i < colors.length - 1 || (i + 1) % 8 === 0) {
+            // Set fixed page ranges for each category
+            let currentPage;
+            if (category === 'light') {
+                // Light colors: pages 1-25
+                colors.forEach((color, i) => {
+                    const card = createColorCard(color);
+                    currentPage = Math.min(25, 1 + Math.floor(i / 8));
+                    card.setAttribute('data-page', currentPage);
+                    colorGrid.appendChild(card);
+                    
+                    // Add separator after every 8 colors
+                    if ((i + 1) % 8 === 0 && currentPage <= 25) {
                         const separator = document.createElement('div');
                         separator.className = 'color-separator';
                         const circle = document.createElement('div');
                         circle.className = 'page-circle';
-                        circle.textContent = pageNumber;
+                        circle.textContent = currentPage;
                         separator.appendChild(circle);
                         colorGrid.appendChild(separator);
                     }
-                }
-            });
-            
-            // Update global page number for next category
-            if (category !== 'light') {
-                globalPageNumber += Math.ceil(colors.length / 8);
+                });
+            } else if (category === 'medium') {
+                // Medium colors: pages 26-255
+                colors.forEach((color, i) => {
+                    const card = createColorCard(color);
+                    currentPage = Math.min(255, 26 + Math.floor(i / 8));
+                    card.setAttribute('data-page', currentPage);
+                    colorGrid.appendChild(card);
+                    
+                    // Add separator after every 8 colors
+                    if ((i + 1) % 8 === 0 && currentPage <= 255) {
+                        const separator = document.createElement('div');
+                        separator.className = 'color-separator';
+                        const circle = document.createElement('div');
+                        circle.className = 'page-circle';
+                        circle.textContent = currentPage;
+                        separator.appendChild(circle);
+                        colorGrid.appendChild(separator);
+                    }
+                });
+            } else if (category === 'dark') {
+                // Dark colors: pages 256-275
+                colors.forEach((color, i) => {
+                    const card = createColorCard(color);
+                    currentPage = Math.min(275, 256 + Math.floor(i / 8));
+                    card.setAttribute('data-page', currentPage);
+                    colorGrid.appendChild(card);
+                    
+                    // Add separator after every 8 colors
+                    if ((i + 1) % 8 === 0 && currentPage <= 275) {
+                        const separator = document.createElement('div');
+                        separator.className = 'color-separator';
+                        const circle = document.createElement('div');
+                        circle.className = 'page-circle';
+                        circle.textContent = currentPage;
+                        separator.appendChild(circle);
+                        colorGrid.appendChild(separator);
+                    }
+                });
             }
         }
     }
