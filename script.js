@@ -1621,7 +1621,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const colorData = {
                 value: color.value,
                 number: color.number.trim(),
-                name: color.name
+                name: color.name,
+                pageNumber: card.getAttribute('data-page') // Store page number
             };
             e.dataTransfer.setData('application/json', JSON.stringify(colorData));
         });
@@ -1701,5 +1702,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById(contentId).classList.add('active');
             });
         });
+    }
+
+    // Function to handle color selection
+    function handleColorSelection(colorData) {
+        if (selectedPolygonIndex !== -1) {
+            polygons[selectedPolygonIndex].color = colorData.value;
+            polygons[selectedPolygonIndex].colorInfo = {
+                number: colorData.number,
+                name: colorData.name,
+                pageNumber: colorData.pageNumber // Store page number
+            };
+            redrawCanvas();
+            updatePolygonList();
+        }
     }
 });
