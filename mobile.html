@@ -23,6 +23,9 @@
     <div class="app-container">
         <!-- Main Canvas Area -->
         <main class="main-content">
+            <button class="save-button" id="saveButton">
+                💾
+            </button>
             <canvas id="drawingCanvas"></canvas>
             
             <!-- Floating Action Button for Wall Actions -->
@@ -91,27 +94,19 @@
                 <div class="setting-group">
                     <h3>Wall Options</h3>
                     <div class="opacity-control">
-                        <label for="opacitySlider">Opacity:</label>
+                        <label for="opacitySlider">Global Opacity:</label>
                         <input type="range" id="opacitySlider" min="0" max="100" value="100">
                         <span id="opacityValue">100%</span>
                     </div>
-                    <div class="blend-modes">
-                        <button id="lightenBtn" class="blend-mode-btn">
-                            <i class="icon">☀️</i>
-                            Lighten
-                        </button>
-                        <button id="darkenBtn" class="blend-mode-btn">
-                            <i class="icon">🌙</i>
-                            Darken
-                        </button>
-                        <button id="multiplyBtn" class="blend-mode-btn">
-                            <i class="icon">✖️</i>
-                            Multiply
-                        </button>
+                    <div class="drawing-options">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="livePointsToggle" checked>
+                            Show Live Points
+                        </label>
                     </div>
                 </div>
                 <div class="setting-group">
-                    <h3>Image</h3>
+                    <h3>Image & Canvas</h3>
                     <input type="file" id="imageInput" accept="image/*" style="display: none;">
                     <button id="uploadImageBtn" class="setting-btn">
                         <i class="icon">🖼️</i>
@@ -123,7 +118,7 @@
                     </button>
                     <button id="clearBtn" class="setting-btn danger">
                         <i class="icon">🗑️</i>
-                        Clear All
+                        Clear All Walls
                     </button>
                 </div>
             </div>
@@ -143,7 +138,44 @@
                 <i class="icon">⚙️</i>
                 <span>Settings</span>
             </button>
+            <button class="nav-btn" id="colorPickerBtn">
+                <i class="icon">🎨</i>
+                <span>Pick Color</span>
+            </button>
         </nav>
+
+        <!-- Add this before closing app-container -->
+        <div class="color-picker-panel bottom-panel" id="colorPickerPanel">
+            <div class="panel-header">
+                <div class="panel-title">Color Matches</div>
+                <button class="close-panel">×</button>
+            </div>
+            <div class="picker-instructions">
+                Click anywhere on the image to pick a color
+            </div>
+            <div class="similar-colors">
+                <div class="similar-colors-section">
+                    <div class="section-title">Regular Colors</div>
+                    <div class="similar-colors-row">
+                        <div class="color-match-card" id="matchCard1"></div>
+                        <div class="color-match-card" id="matchCard2"></div>
+                        <div class="color-match-card" id="matchCard3"></div>
+                        <div class="color-match-card" id="matchCard4"></div>
+                        <div class="color-match-card" id="matchCard5"></div>
+                    </div>
+                </div>
+                <div class="similar-colors-section">
+                    <div class="section-title">Opus Colors</div>
+                    <div class="similar-colors-row">
+                        <div class="color-match-card" id="opusMatchCard1"></div>
+                        <div class="color-match-card" id="opusMatchCard2"></div>
+                        <div class="color-match-card" id="opusMatchCard3"></div>
+                        <div class="color-match-card" id="opusMatchCard4"></div>
+                        <div class="color-match-card" id="opusMatchCard5"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="colorData.js"></script>
